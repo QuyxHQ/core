@@ -24,13 +24,10 @@ router.post(
   "/",
   canAccessRoute(QUYX_USER.USER),
   validate(addToBookmarkSchema),
-  async function (
-    req: Request<{}, {}, AddToBookmark["body"]>,
-    res: Response<{}, QuyxLocals>
-  ) {
+  async function (req: Request<{}, {}, AddToBookmark["body"]>, res: Response<{}, QuyxLocals>) {
     try {
       const { identifier } = res.locals.meta;
-      const isAlreadyBookmarked = await alreadyInBookmark(identifier, req.body.cardId);
+      const isAlreadyBookmarked = await alreadyInBookmark(identifier, req.body.card);
       if (isAlreadyBookmarked) {
         return res.status(200).json({
           status: false,
@@ -40,7 +37,7 @@ router.post(
 
       const bookmark = await addToBookmark({
         user: identifier,
-        card: req.body.cardId,
+        card: req.body.card,
       });
 
       return res.status(201).json({
@@ -62,15 +59,12 @@ router.delete(
   "/:cardId",
   canAccessRoute(QUYX_USER.USER),
   validate(removeFromBookmarkSchema),
-  async function (
-    req: Request<RemoveFromBookmark["params"]>,
-    res: Response<{}, QuyxLocals>
-  ) {
+  async function (req: Request<RemoveFromBookmark["params"]>, res: Response<{}, QuyxLocals>) {
     try {
       const { identifier } = res.locals.meta;
-      const { cardId } = req.params;
+      const { card } = req.params;
 
-      const resp = await removeFromBookmark(identifier, cardId);
+      const resp = await removeFromBookmark(identifier, card);
       if (!resp) return res.sendStatus(400);
 
       return res.status(201).json({

@@ -1,8 +1,7 @@
 import { z } from "zod";
 
 export const createCardSchema = z.object({
-  body: z.object({
-    identifier: z.undefined(),
+  body: z.strictObject({
     chainId: z.enum(["1", "56"]),
     username: z.string(),
     pfp: z.string().url(),
@@ -17,7 +16,7 @@ export const editCardSchema = z.object({
     chainId: z.enum(["1", "56"]),
     cardId: z.string(),
   }),
-  body: z.object({
+  body: z.strictObject({
     username: z.string(),
     pfp: z.string().url(),
     bio: z.string(),

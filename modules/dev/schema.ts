@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const registerDevSchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     email: z.string().email(),
     firstName: z.string(),
     lastName: z.string(),
@@ -13,14 +13,14 @@ export const registerDevSchema = z.object({
 });
 
 export const loginDevSchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     email: z.string().email(),
     password: z.string(),
   }),
 });
 
 export const editDevSchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     email: z.string().email(),
     firstName: z.string(),
     lastName: z.string(),
@@ -30,20 +30,20 @@ export const editDevSchema = z.object({
 });
 
 export const changeDevPasswordSchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     oldPassword: z.string(),
     newPassword: z.string(),
   }),
 });
 
 export const verifyDevOTPSchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     otp: z.string().length(6),
   }),
 });
 
 export const devSudoModeSchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     password: z.string(),
   }),
 });
@@ -64,7 +64,7 @@ export const resetDevPasswordSchema = z.object({
   params: z.object({
     hash: z.string(),
   }),
-  body: z.object({
+  body: z.strictObject({
     password: z.string(),
   }),
 });

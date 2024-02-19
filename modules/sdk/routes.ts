@@ -106,7 +106,7 @@ router.post(
         if (app!.blacklistedAddresses.includes(address)) {
           const log = {
             status: false,
-            message: `${address} has been blacklisted`,
+            message: `access blocked for ${address}, REASON::IS_BLACKLISTED`,
           };
 
           await _log({
@@ -126,7 +126,7 @@ router.post(
         if (!app!.whitelistedAddresses.includes(address)) {
           const log = {
             status: false,
-            message: `${address} is not whitelisted`,
+            message: `access blocked for ${address}, REASON::NOT_WHITELISTED`,
           };
 
           await _log({
@@ -143,7 +143,7 @@ router.post(
       }
 
       const sdkUser = await upsertSDKUser(
-        { address, isActive: true },
+        { address, isActive: true, app: app!._id },
         { card: null, address, app: app!._id }
       );
 
@@ -226,7 +226,7 @@ router.get(
           status: QUYX_LOG_STATUS.FAILED,
           log: JSON.stringify({
             status: false,
-            message: `user with _id:${identifier} was not found`,
+            message: `user with _id: ${identifier} was not found`,
             data: {
               body: req.body,
               params: req.params,
@@ -249,7 +249,7 @@ router.get(
 
       return res.json({
         status: true,
-        messge: "",
+        messge: "user fetched",
         data: sdkUser,
       });
     } catch (e: any) {
@@ -300,7 +300,7 @@ router.get(
           status: QUYX_LOG_STATUS.FAILED,
           log: JSON.stringify({
             status: false,
-            message: `user with _id:${identifier} was not found`,
+            message: `user with _id: ${identifier} was not found`,
             data: {
               body: req.body,
               params: req.params,
@@ -331,9 +331,9 @@ router.get(
         });
       }
 
-      const totalCards = await countCards({ owner: quyxUser.id });
+      const totalCards = await countCards({ owner: quyxUser.id, isDeleted: false });
       const cards = await findCards(
-        { owner: quyxUser._id },
+        { owner: quyxUser._id, isDeleted: false },
         { limit: parseInt(limit), page: parseInt(page) }
       );
 
@@ -427,6 +427,11 @@ router.put(
           log: JSON.stringify({
             status: false,
             message: `user with _id:${identifier} was not found`,
+            data: {
+              body: req.body,
+              params: req.params,
+              query: req.query,
+            },
           }),
         });
 
@@ -443,7 +448,7 @@ router.put(
           status: QUYX_LOG_STATUS.FAILED,
           log: JSON.stringify({
             status: false,
-            message: `user with address:${sdkUser.address} is not the owner of card #'${cardId}'`,
+            message: `user with address: ${sdkUser.address} is not the owner of card '#${cardId}'`,
             data: {
               body: req.body,
               params: req.params,
@@ -545,9 +550,187 @@ router.delete(
   }
 );
 
-//# get all users under an app
+//# get all users under a sdk (with pagination or not)
 router.get(
-  "/users/:app",
+  "/users/all",
+  hasAccessToSDK,
+  async function (req: Request, res: Response<{}, QuyxLocals>) {
+    const { app } = res.locals.meta;
+    const start = Date.now();
+
+    try {
+      const { limit, page } = req.query as { limit?: string; page?: string };
+
+      if (limit && page) {
+        if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) {
+          await _log({
+            app: app!._id,
+            dev: app!.owner,
+            responseTime: Date.now() - start,
+            route: "/users/all",
+            status: QUYX_LOG_STATUS.FAILED,
+            log: JSON.stringify({
+              status: false,
+              message: `expected type number for limit & page in req.query`,
+              data: {
+                body: req.body,
+                params: req.params,
+                query: req.query,
+              },
+            }),
+          });
+
+          return res.sendStatus(400);
+        }
+      }
+
+      const totalResults = await countSDKUsers({ app: app!._id, isActive: true });
+      const result = await findSDKUsers(
+        { app: app!._id, isActive: true },
+        {
+          limit: limit ? parseInt(limit) : totalResults,
+          page: page ? parseInt(page) : 1,
+        }
+      );
+
+      await _log({
+        app: app!._id,
+        dev: app!.owner,
+        responseTime: Date.now() - start,
+        route: "/users/all",
+        status: QUYX_LOG_STATUS.SUCCESSFUL,
+        log: null,
+      });
+
+      return res.json({
+        status: true,
+        message: "fetched users",
+        data: result,
+        pagination:
+          limit && page
+            ? {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                skip: (parseInt(page) - 1) * parseInt(limit),
+                total: totalResults,
+              }
+            : undefined,
+      });
+    } catch (e: any) {
+      const log = {
+        status: false,
+        message: e.message,
+        data: {
+          body: req.body,
+          params: req.params,
+          query: req.query,
+        },
+      };
+
+      await _log({
+        app: app!._id,
+        dev: app!.owner,
+        responseTime: Date.now() - start,
+        route: "/users/all",
+        status: QUYX_LOG_STATUS.FAILED,
+        log: JSON.stringify(log),
+      });
+
+      return res.status(500).json(log);
+    }
+  }
+);
+
+//# get info from address
+router.get(
+  "/user/:address",
+  hasAccessToSDK,
+  async function (req: Request, res: Response<{}, QuyxLocals>) {
+    const { app } = res.locals.meta;
+    const { address } = req.params;
+    const start = Date.now();
+
+    try {
+      if (!address || typeof address !== "string") {
+        await _log({
+          app: app!._id,
+          dev: app!.owner,
+          responseTime: Date.now() - start,
+          route: `/user/${address}`,
+          status: QUYX_LOG_STATUS.FAILED,
+          log: JSON.stringify({
+            status: false,
+            message: `expected type string, got: ${String(address)}`,
+            data: {
+              body: req.body,
+              params: req.params,
+              query: req.query,
+            },
+          }),
+        });
+
+        return res.sendStatus(400);
+      }
+
+      const sdkUser = await findSDKUser({ address, app: app!._id, isActive: true });
+      if (!sdkUser) {
+        await _log({
+          app: app!._id,
+          dev: app!.owner,
+          responseTime: Date.now() - start,
+          route: `/user/${address}`,
+          status: QUYX_LOG_STATUS.FAILED,
+          log: JSON.stringify({
+            status: false,
+            message: `no data found for address: ${address}`,
+          }),
+        });
+
+        return res.sendStatus(404);
+      }
+
+      await _log({
+        app: app!._id,
+        dev: app!.owner,
+        responseTime: Date.now() - start,
+        route: `/user/${address}`,
+        status: QUYX_LOG_STATUS.SUCCESSFUL,
+        log: null,
+      });
+
+      return res.json({
+        status: true,
+        message: "fetched user",
+        data: sdkUser,
+      });
+    } catch (e: any) {
+      const log = {
+        status: false,
+        message: e.message,
+        data: {
+          body: req.body,
+          params: req.params,
+          query: req.query,
+        },
+      };
+
+      await _log({
+        app: app!._id,
+        dev: app!.owner,
+        responseTime: Date.now() - start,
+        route: `/user/${address}`,
+        status: QUYX_LOG_STATUS.FAILED,
+        log: JSON.stringify(log),
+      });
+
+      return res.status(500).json(log);
+    }
+  }
+);
+
+//# get all users under an app (accessible by dev only ***NOT ON SDK***)
+router.get(
+  "/users/dev/:app",
   canAccessRoute(QUYX_USER.DEV),
   validate(getSDKUsersSchema),
   async function (req: Request<GetSDKUsers["params"]>, res: Response<{}, QuyxLocals>) {

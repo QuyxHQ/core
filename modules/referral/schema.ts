@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const createReferrallLinkSchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     card: z.string().regex(/^[0-9a-fA-F]{24}$/),
   }),
 });

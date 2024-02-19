@@ -1,14 +1,14 @@
 import { z } from "zod";
 
 export const addToBookmarkSchema = z.object({
-  body: z.object({
-    cardId: z.string().regex(/^[0-9a-fA-F]{24}$/),
+  body: z.strictObject({
+    card: z.string().regex(/^[0-9a-fA-F]{24}$/),
   }),
 });
 
 export const removeFromBookmarkSchema = z.object({
   params: z.object({
-    cardId: z.string().regex(/^[0-9a-fA-F]{24}$/),
+    card: z.string().regex(/^[0-9a-fA-F]{24}$/),
   }),
 });
 

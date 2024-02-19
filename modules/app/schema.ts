@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const registerAppSchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     name: z.string(),
     description: z.string(),
     allowedDomains: z.string().url().array().nullable(),
@@ -24,7 +24,7 @@ export const getAppSchema = z.object({
 });
 
 export const editAppSchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     name: z.string(),
     description: z.string(),
     allowedDomains: z.string().url().array().nullable(),

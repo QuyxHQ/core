@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const SIWESchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     message: z.object({
       domain: z.string(),
       address: z.string(),
@@ -17,7 +17,7 @@ export const SIWESchema = z.object({
 });
 
 export const editUserSchema = z.object({
-  body: z.object({
+  body: z.strictObject({
     pfp: z.string().url(),
     username: z.string(),
     email: z.string().email(),
@@ -25,7 +25,7 @@ export const editUserSchema = z.object({
 });
 
 export const verifyKYC = z.object({
-  body: z.object({
+  body: z.strictObject({
     otp: z.string().length(6),
   }),
 });
