@@ -66,6 +66,7 @@ type QuyxCard = DateProps & {
   description: stirng | null;
   isForSale: boolean;
   isAuction: boolean | null;
+  listingPrice: number | null;
   maxNumberOfBids: number | null;
   aunctionEnds: Date | null;
   tags: string[] | null;
@@ -132,3 +133,37 @@ type QuyxLocals = {
 
 type DateProps = { createdAt?: Date; updatedAt?: Date };
 type FindProps = { limit: number; page: number };
+
+type MoralisStreamResponse = {
+  confirmed: boolean;
+  chainId: string;
+  abi: Record<any, any>[];
+  streamId: string;
+  tag: string;
+  retries: number;
+  block: {
+    number: string;
+    hash: string;
+    timestamp: string;
+  };
+  logs: [
+    {
+      logIndex: string;
+      transactionHash: string;
+      address: string;
+      data: string;
+      topic0: string | null;
+      topic1: string | null;
+      topic2: string | null;
+      topic3: string | null;
+    }
+  ];
+  txs: any[];
+  txsInternal: any[];
+  erc20Transfers: any[];
+  erc20Approvals: any[];
+  nftTokenApprovals: any[];
+  nftApprovals: { ERC721: any[]; ERC1155: any[] };
+  nftTransfers: any[];
+  nativeBalances: any[];
+};

@@ -3,6 +3,8 @@ import { get } from "lodash";
 import { findApp } from "../../modules/app/service";
 import { addLog } from "../../modules/log/service";
 import { QUYX_LOG_STATUS } from "./constants";
+import { ethers } from "ethers";
+import config from "./config";
 
 type Props = (typeof QUYX_USERS)[number];
 export function canAccessRoute(role: Props | Props[]) {
@@ -96,5 +98,15 @@ export async function hasAccessToSDK(
   }
 
   res.locals.meta.app = app;
+  return next();
+}
+
+export function isFromMoralis(req: Request, res: Response, next: NextFunction) {
+  const signature = req.headers["x-signature"];
+  if (!signature) res.sendStatus(403);
+
+  const _signature = ethers.utils.id(JSON.stringify(req.body) + config.MORALIS_SECRET);
+  if (_signature !== signature) return res.sendStatus(401);
+
   return next();
 }

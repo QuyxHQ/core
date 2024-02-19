@@ -60,6 +60,10 @@ const cardSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    listingPrice: {
+      type: Number,
+      default: null,
+    },
     aunctionEnds: {
       type: Date,
       default: null,

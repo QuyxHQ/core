@@ -17,6 +17,7 @@ let {
   SMTP_PORT,
   DEV_BASE_URL,
   CLIENT_BASE_URL,
+  MORALIS_SECRET,
 } = process.env;
 
 ACCESS_TOKEN_TTL = ACCESS_TOKEN_TTL || "5m";
@@ -30,6 +31,7 @@ SMTP_PASSWORD = SMTP_PASSWORD || "";
 SMTP_PORT = SMTP_PORT || "";
 DEV_BASE_URL = DEV_BASE_URL || "http://localhost:5173";
 CLIENT_BASE_URL = CLIENT_BASE_URL || "http://localhost:5173";
+MORALIS_SECRET = MORALIS_SECRET || "";
 
 export default {
   APP_PRIVATE_KEY,
@@ -46,4 +48,5 @@ export default {
   SMTP_PORT,
   DEV_BASE_URL,
   CLIENT_BASE_URL,
+  MORALIS_SECRET,
 };

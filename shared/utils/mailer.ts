@@ -1,12 +1,7 @@
 import config from "./config";
-import { QUYX_NETWORKS } from "./constants";
 import { mailerSdk } from "./mailer.class";
 
-export async function sendKYCMail(data: {
-  email: string;
-  otp: string;
-  username: string;
-}) {
+export async function sendKYCMail(data: { email: string; otp: string; username: string }) {
   const html = `<p>Good day from quyx</p>
   <p>This email address was used as a primary email address for a Quyx user. If this was you, kindly use the 6-digit OTP code below to complete request otherwise kindly do away with this email</p>
   <h1>${data.otp}</h1>
@@ -19,11 +14,7 @@ export async function sendKYCMail(data: {
   await mailerSdk.send({ receiver: data.email, subject, html });
 }
 
-export async function sendDevKYCMail(data: {
-  email: string;
-  otp: string;
-  firstName: string;
-}) {
+export async function sendDevKYCMail(data: { email: string; otp: string; firstName: string }) {
   const html = `<p>Hello ${data.firstName}, Good day from quyx</p>
   <p>This email address was used as an email address for a Quyx dev. If this was you, kindly use the 6-digit OTP code below to complete request otherwise kindly do away with this email</p>
   <h1>${data.otp}</h1>
@@ -57,7 +48,7 @@ export async function sendBidPlacedMail(data: {
   email: string;
   username: string;
   amount: number;
-  chainId: QUYX_NETWORKS;
+  chainId: (typeof QUYX_NETWORKS)[number];
   cardId: number;
 }) {
   const html = `<p>Hello ${data.username}, Good day from quyx</p>
@@ -95,7 +86,7 @@ export async function sendHighestBidPlacedMail(data: {
 export async function sendCardTransferredToMail(data: {
   email: string;
   username: string;
-  chainId: QUYX_NETWORKS;
+  chainId: (typeof QUYX_NETWORKS)[number];
   cardId: number;
 }) {
   const html = `<p>Hello ${data.username}, Good day from quyx</p>
@@ -107,6 +98,25 @@ export async function sendCardTransferredToMail(data: {
   <p>Best Regards,</p>
   <p>Quyx Team ✨</p>`;
   const subject = `Quyx <-> Card #${data.cardId} is now yours 🎉`;
+
+  await mailerSdk.send({ receiver: data.email, subject, html });
+}
+
+export async function sendCardBoughtMail(data: {
+  email: string;
+  username: string;
+  chainId: (typeof QUYX_NETWORKS)[number];
+  cardId: number;
+}) {
+  const html = `<p>Hello ${data.username}, Good day from quyx</p>
+  <p>Card #${data.cardId} ownership has been bought and ownership has been transferred to it's new owner</p>
+  <p><strong>Chain ID: </strong>${data.chainId}</p>
+  <p><strong>URL: </strong><a href="${config.CLIENT_BASE_URL}/card/${data.cardId}">view card</a></p>
+  <br/>
+  <br/>
+  <p>Best Regards,</p>
+  <p>Quyx Team ✨</p>`;
+  const subject = `Quyx <-> Card #${data.cardId} has been purchased`;
 
   await mailerSdk.send({ receiver: data.email, subject, html });
 }

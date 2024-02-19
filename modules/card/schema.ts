@@ -8,9 +8,6 @@ export const createCardSchema = z.object({
     pfp: z.string().url(),
     bio: z.string(),
     description: z.string().nullable(),
-    isAuction: z.boolean().nullable(),
-    maxNumberOfBids: z.number().nullable(),
-    aunctionEnds: z.date().nullable(),
     tags: z.string().array().nullable(),
   }),
 });
