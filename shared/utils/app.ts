@@ -2,9 +2,28 @@ import express from "express";
 import cors from "cors";
 import appRouter from "./app.router";
 import deserializeUser from "../middlewares/deserializeUser";
+import * as Sentry from "@sentry/node";
+import { ProfilingIntegration } from "@sentry/profiling-node";
+import config from "./config";
+import log from "./log";
 
 function createServer() {
   const app = express();
+
+  Sentry.init({
+    dsn: config.SENTRY_DSN,
+    integrations: [
+      new Sentry.Integrations.Http({ tracing: true }),
+      new Sentry.Integrations.Express({ app }),
+      new ProfilingIntegration(),
+    ],
+    tracesSampleRate: 1.0,
+    profilesSampleRate: 1.0,
+  });
+
+  app.use(Sentry.Handlers.requestHandler());
+  app.use(Sentry.Handlers.tracingHandler());
+
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
 
@@ -35,11 +54,19 @@ function createServer() {
 
   app.get("/healthz", (_, res) => res.sendStatus(200));
   app.use("/", appRouter);
+  app.get("/debug-sentry", function () {
+    throw new Error("My first Sentry error!");
+  });
 
-  app.use((_, res) => {
-    res.status(500).json({
+  app.use(Sentry.Handlers.errorHandler());
+
+  app.use(function onError(err: any, _: any, res: any, __: any) {
+    log.error(err, "Error occured:");
+    res.statusCode = 500;
+    res.json({
       status: false,
-      message: "broken or missing link",
+      error_id: res.sentry,
+      message: "unexpected error occured",
     });
   });
 
