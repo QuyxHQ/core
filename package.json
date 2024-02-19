@@ -30,6 +30,7 @@
     "dotenv": "^16.4.4",
     "ethers": "5.7",
     "express": "^4.18.2",
+    "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "lodash": "^4.17.21",
     "mongoose": "^8.1.2",

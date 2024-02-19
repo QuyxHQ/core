@@ -4,6 +4,7 @@ import appRouter from "./app.router";
 import deserializeUser from "../middlewares/deserializeUser";
 import * as Sentry from "@sentry/node";
 import { ProfilingIntegration } from "@sentry/profiling-node";
+import helmet from "helmet";
 import config from "./config";
 import log from "./log";
 
@@ -26,6 +27,8 @@ function createServer() {
 
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
+
+  app.use(helmet());
 
   app.use(
     cors({
