@@ -5,7 +5,7 @@
     "chainName": "Ethereum",
     "symbol": "ETH",
     "isTestnet": false,
-    "logo": "https://api.quyx.xyz/resources/eth.svg",
+    "logo": "https://api.quyx.xyz/media/eth.svg",
     "urls": {
       "rpc": "",
       "explorer": ""
@@ -17,7 +17,7 @@
     "chainName": "BNB Smart Chain",
     "symbol": "BNB",
     "isTestnet": false,
-    "logo": "https://api.quyx.xyz/resources/bnb.svg",
+    "logo": "https://api.quyx.xyz/media/bnb.svg",
     "urls": {
       "rpc": "",
       "explorer": ""

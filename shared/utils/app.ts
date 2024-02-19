@@ -1,4 +1,4 @@
-import express from "express";
+import express, { NextFunction, Response, response } from "express";
 import cors from "cors";
 import appRouter from "./app.router";
 import deserializeUser from "../middlewares/deserializeUser";
@@ -7,6 +7,7 @@ import { ProfilingIntegration } from "@sentry/profiling-node";
 import helmet from "helmet";
 import config from "./config";
 import log from "./log";
+import info from "../../contract/info.json";
 
 function createServer() {
   const app = express();
@@ -46,7 +47,7 @@ function createServer() {
     })
   );
 
-  app.use((_, res, next) => {
+  app.use((_, res: Response, next: NextFunction) => {
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "s-max-age=1, stale-while-revalidate");
 
@@ -55,11 +56,9 @@ function createServer() {
 
   app.use(deserializeUser); //to deserialize the user..
 
-  app.get("/healthz", (_, res) => res.sendStatus(200));
+  app.get("/healthz", (_, res: Response) => res.sendStatus(200));
+  app.get("/supported-chains", (_, res: Response) => res.json(info));
   app.use("/", appRouter);
-  app.get("/debug-sentry", function () {
-    throw new Error("My first Sentry error!");
-  });
 
   app.use(Sentry.Handlers.errorHandler());
 
