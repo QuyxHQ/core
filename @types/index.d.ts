@@ -1,4 +1,4 @@
-type QuyxUser = DateProps & {
+type QuyxUser = Base & {
   username: string;
   email: string | null;
   hasCompletedKYC: boolean;
@@ -30,14 +30,14 @@ type QuyxUser = DateProps & {
   }[];
 };
 
-type QuyxSDKUser = DateProps & {
+type QuyxSDKUser = Base & {
   app: string;
   address: string;
   card: string;
   isActive: boolean;
 };
 
-type QuyxDev = DateProps & {
+type QuyxDev = Base & {
   email: string;
   firstName: string;
   lastName: string;
@@ -53,7 +53,7 @@ type QuyxDev = DateProps & {
   forgetPasswordHashExpiry: Date | null;
 };
 
-type QuyxCard = DateProps & {
+type QuyxCard = Base & {
   owner: string;
   identifier: null | number;
   version: null | number;
@@ -74,7 +74,7 @@ type QuyxCard = DateProps & {
   isDeleted: boolean;
 };
 
-type QuyxBid = DateProps & {
+type QuyxBid = Base & {
   card: string;
   version: number;
   bidder: string;
@@ -82,14 +82,14 @@ type QuyxBid = DateProps & {
   timestamp: Date;
 };
 
-type QuyxBookmark = DateProps & {
+type QuyxBookmark = Base & {
   user: string;
   card: string;
 };
 
 const QUYX_REQUEST_STATUS = ["failed", "successful"] as const;
 
-type QuyxLog = DateProps & {
+type QuyxLog = Base & {
   app: string;
   dev: string;
   status: (typeof QUYX_REQUEST_STATUS)[number];
@@ -100,7 +100,7 @@ type QuyxLog = DateProps & {
 
 const QUYX_USERS = ["quyx_user", "quyx_staff", "quyx_dev", "quyx_sdk_user"] as const;
 
-type QuyxSession = DateProps & {
+type QuyxSession = Base & {
   identifier: string;
   role: (typeof QUYX_USERS)[number];
   isActive: boolean;
@@ -109,7 +109,7 @@ type QuyxSession = DateProps & {
 
 const QUYX_NETWORKS = ["1", "56"] as const;
 
-type QuyxApp = DateProps & {
+type QuyxApp = Base & {
   apiKey: string;
   clientID: string;
   owner: string;
@@ -122,6 +122,13 @@ type QuyxApp = DateProps & {
   isActive: boolean;
 };
 
+type QuyxReferral = Base & {
+  user: string;
+  card: string;
+  clicks: number;
+  isActive: boolean;
+};
+
 type QuyxLocals = {
   meta: {
     session: string;
@@ -131,7 +138,7 @@ type QuyxLocals = {
   };
 };
 
-type DateProps = { createdAt?: Date; updatedAt?: Date };
+type Base = { createdAt?: Date; updatedAt?: Date };
 type FindProps = { limit: number; page: number };
 
 type MoralisStreamResponse = {

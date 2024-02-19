@@ -19,12 +19,7 @@ import config from "../../shared/utils/config";
 import { signJWT } from "../../shared/utils/jwt";
 import { countCards, findCard, findCards } from "../card/service";
 import { findUser } from "../user/service";
-import {
-  ChangeCardSDK,
-  GetSDKUsers,
-  changeCardSDKSchema,
-  getSDKUsersSchema,
-} from "./schema";
+import { ChangeCardSDK, GetSDKUsers, changeCardSDKSchema, getSDKUsersSchema } from "./schema";
 
 const router = express.Router();
 
