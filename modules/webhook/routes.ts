@@ -1,9 +1,9 @@
 import express, { Request, Response } from "express";
-import { isFromMoralis } from "../../shared/utils/validators";
+import { cronSenderIsValid, isFromMoralis } from "../../shared/utils/validators";
 import { decodeLog } from "./service";
 import { ethers } from "ethers";
 import { addBid, findBid } from "../bid/service";
-import { findCard, updateCard } from "../card/service";
+import { countCards, findCard, findCards, updateCard } from "../card/service";
 import {
   sendBidPlacedMail,
   sendCardBoughtMail,
@@ -12,8 +12,52 @@ import {
 } from "../../shared/utils/mailer";
 import { findUser } from "../user/service";
 import { updateManyReferral } from "../referral/service";
+import { endAuctionOnChain } from "../../shared/utils/helpers";
 
 const router = express.Router();
+
+//# cron job endpoint
+router.post(
+  "/cron/check-auction",
+  cronSenderIsValid,
+  async function (_: Request, res: Response) {
+    try {
+      const countOfOpenAuctionThatAreExpired = await countCards({
+        isForSale: true,
+        isDeleted: false,
+        aunctionEnds: {
+          $lte: new Date(),
+        },
+      });
+
+      const endedButActiveAuctions = await findCards(
+        {
+          isForSale: true,
+          isDeleted: false,
+          aunctionEnds: {
+            $lte: new Date(),
+          },
+        },
+        { limit: countOfOpenAuctionThatAreExpired, page: 1 }
+      );
+
+      if (endedButActiveAuctions.length > 0) {
+        //# loop and end them.....
+        for (let auctions of endedButActiveAuctions) {
+          //# helper fn to end it on chain
+          await endAuctionOnChain(auctions.chainId, auctions.identifier!);
+        }
+      }
+
+      return res.sendStatus(200);
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
 
 //# moralis webhook route
 router.post(

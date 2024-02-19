@@ -8,11 +8,7 @@ import config from "./config";
 
 type Props = (typeof QUYX_USERS)[number];
 export function canAccessRoute(role: Props | Props[]) {
-  return async function (
-    req: Request,
-    res: Response<{}, QuyxLocals>,
-    next: NextFunction
-  ) {
+  return async function (req: Request, res: Response<{}, QuyxLocals>, next: NextFunction) {
     const start = Date.now();
     if (!res.locals.meta) return res.sendStatus(401);
 
@@ -107,6 +103,14 @@ export function isFromMoralis(req: Request, res: Response, next: NextFunction) {
 
   const _signature = ethers.utils.id(JSON.stringify(req.body) + config.MORALIS_SECRET);
   if (_signature !== signature) return res.sendStatus(401);
+
+  return next();
+}
+
+export function cronSenderIsValid(req: Request, res: Response, next: NextFunction) {
+  const quyx_cron_header = get(req, "headers.quyx-cron-key") ?? null;
+  if (!quyx_cron_header) return res.sendStatus(401);
+  if (quyx_cron_header != config.CRON_KEY) return res.sendStatus(401);
 
   return next();
 }

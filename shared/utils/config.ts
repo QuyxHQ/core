@@ -19,6 +19,8 @@ let {
   CLIENT_BASE_URL,
   MORALIS_SECRET,
   SENTRY_DSN,
+  CRON_KEY,
+  PRIVATE_KEY,
 } = process.env;
 
 ACCESS_TOKEN_TTL = ACCESS_TOKEN_TTL || "5m";
@@ -52,4 +54,6 @@ export default {
   CLIENT_BASE_URL,
   MORALIS_SECRET,
   SENTRY_DSN,
+  CRON_KEY,
+  PRIVATE_KEY,
 };

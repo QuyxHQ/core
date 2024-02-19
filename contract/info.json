@@ -1,0 +1,26 @@
+[
+  {
+    "contractAddress": "0x...",
+    "chainId": "0x1",
+    "chainName": "Ethereum",
+    "symbol": "ETH",
+    "isTestnet": false,
+    "logo": "https://api.quyx.xyz/resources/eth.svg",
+    "urls": {
+      "rpc": "",
+      "explorer": ""
+    }
+  },
+  {
+    "contractAddress": "0x...",
+    "chainId": "0x38",
+    "chainName": "BNB Smart Chain",
+    "symbol": "BNB",
+    "isTestnet": false,
+    "logo": "https://api.quyx.xyz/resources/bnb.svg",
+    "urls": {
+      "rpc": "",
+      "explorer": ""
+    }
+  }
+]
