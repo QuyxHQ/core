@@ -6,7 +6,7 @@ import { avgLogs, countLog, findLogs } from "./service";
 const router = express.Router();
 
 router.get(
-  "/app/metadata/:id",
+  "/app/metrics/:id",
   canAccessRoute(QUYX_USER.DEV),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
     try {
@@ -69,8 +69,7 @@ router.get(
       ]);
 
       const successRate_hour1 = (success_hour1 / (success_hour1 + failed_hour1)) * 100;
-      const successRate_hour24 =
-        (success_hour24 / (success_hour24 + failed_hour24)) * 100;
+      const successRate_hour24 = (success_hour24 / (success_hour24 + failed_hour24)) * 100;
 
       return res.status(200).json({
         status: true,
@@ -98,7 +97,7 @@ router.get(
 
 //# all logs for an app
 router.get(
-  "/app/status/:id",
+  "/app/status/all/:id",
   canAccessRoute(QUYX_USER.DEV),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
     try {

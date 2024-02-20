@@ -2,7 +2,18 @@ import mongoose from "mongoose";
 import Card, { CardDoc } from "./model";
 
 export async function createCard(
-  data: Omit<QuyxCard, "identifier" | "version" | "isDeleted" | "isFlagged" | "isForSale">
+  data: Omit<
+    QuyxCard,
+    | "identifier"
+    | "version"
+    | "isDeleted"
+    | "isFlagged"
+    | "isForSale"
+    | "isAuction"
+    | "listingPrice"
+    | "maxNumberOfBids"
+    | "auctionEnds"
+  >
 ) {
   try {
     const result = await Card.create(data);

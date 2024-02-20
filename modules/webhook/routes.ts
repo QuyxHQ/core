@@ -3,7 +3,7 @@ import { cronSenderIsValid, isFromMoralis } from "../../shared/utils/validators"
 import { decodeLog } from "./service";
 import { ethers } from "ethers";
 import { addBid, findBid } from "../bid/service";
-import { countCards, findCard, findCards, updateCard } from "../card/service";
+import { countCards, deleteCard, findCard, findCards, updateCard } from "../card/service";
 import {
   sendBidPlacedMail,
   sendCardBoughtMail,
@@ -13,6 +13,7 @@ import {
 import { findUser } from "../user/service";
 import { updateManyReferral } from "../referral/service";
 import { endAuctionOnChain } from "../../shared/utils/helpers";
+import { updateManySDKUsers } from "../sdk/service";
 
 const router = express.Router();
 
@@ -25,7 +26,7 @@ router.post(
       const countOfOpenAuctionThatAreExpired = await countCards({
         isForSale: true,
         isDeleted: false,
-        aunctionEnds: {
+        auctionEnds: {
           $lte: new Date(),
         },
       });
@@ -34,7 +35,7 @@ router.post(
         {
           isForSale: true,
           isDeleted: false,
-          aunctionEnds: {
+          auctionEnds: {
             $lte: new Date(),
           },
         },
@@ -149,7 +150,7 @@ router.post(
               isAuction,
               listingPrice,
               maxNumberOfBids,
-              aunctionEnds: end,
+              auctionEnds: end,
             }
           );
         }
@@ -169,12 +170,28 @@ router.post(
           }
         }
 
+        if (decodedLog.name == "CardDeleted") {
+          const cardId = parseInt(decodedLog.args.cardId.toString() as string);
+          const card = await findCard({ identifier: cardId, chainId, isDeleted: false });
+          if (card) {
+            await deleteCard({ _id: card._id, isDeleted: false });
+            await updateManySDKUsers(
+              {
+                card: card._id,
+                isActive: true,
+              },
+              { card: null }
+            );
+          }
+        }
+
         if (decodedLog.name == "CardSold") {
           const to = decodedLog.args.to;
           const cardId = parseInt(decodedLog.args.cardId.toString() as string);
 
           const card = await findCard({
             identifier: cardId,
+            chainId,
             isForSale: true,
             isDeleted: false,
             isAuction: true,
@@ -189,6 +206,11 @@ router.post(
                 email: cardOwner.email,
                 username: cardOwner.username,
               });
+
+              await updateManySDKUsers(
+                { address: cardOwner.address, card: card._id, isActive: true },
+                { card: null }
+              );
             }
 
             const cardNewOwner = await findUser({ address: to });
@@ -209,7 +231,7 @@ router.post(
                 isAuction: null,
                 maxNumberOfBids: null,
                 listingPrice: null,
-                aunctionEnds: null,
+                auctionEnds: null,
               }
             );
 
@@ -236,7 +258,7 @@ router.post(
                 isAuction: null,
                 maxNumberOfBids: null,
                 listingPrice: null,
-                aunctionEnds: null,
+                auctionEnds: null,
               }
             );
 

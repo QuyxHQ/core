@@ -68,7 +68,7 @@ type QuyxCard = Base & {
   isAuction: boolean | null;
   listingPrice: number | null;
   maxNumberOfBids: number | null;
-  aunctionEnds: Date | null;
+  auctionEnds: Date | null;
   tags: string[] | null;
   isFlagged: boolean;
   isDeleted: boolean;

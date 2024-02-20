@@ -12,16 +12,10 @@ import {
 import validate from "../../shared/middlewares/validateSchema";
 import { canAccessRoute } from "../../shared/utils/validators";
 import { QUYX_USER } from "../../shared/utils/constants";
-import {
-  countApps,
-  deleteApp,
-  findApp,
-  findApps,
-  registerApp,
-  updateApp,
-} from "./service";
+import { countApps, deleteApp, findApp, findApps, registerApp, updateApp } from "./service";
 import { v4 as uuidv4 } from "uuid";
 import { generateHash } from "../../shared/utils/helpers";
+import { findDev } from "../dev/service";
 
 const router = express.Router();
 
@@ -30,12 +24,17 @@ router.post(
   "/",
   canAccessRoute(QUYX_USER.DEV),
   validate(registerAppSchema),
-  async function (
-    req: Request<{}, {}, RegisterApp["body"]>,
-    res: Response<{}, QuyxLocals>
-  ) {
+  async function (req: Request<{}, {}, RegisterApp["body"]>, res: Response<{}, QuyxLocals>) {
     try {
       const { identifier } = res.locals.meta;
+      const dev = await findDev({ _id: identifier });
+      if (dev && !dev.isEmailVerified) {
+        return res.status(409).json({
+          status: false,
+          message: "email address must be verified first",
+        });
+      }
+
       const apiKey = uuidv4();
       const clientID = generateHash();
 

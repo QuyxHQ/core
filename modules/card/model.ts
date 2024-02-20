@@ -64,7 +64,7 @@ const cardSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
-    aunctionEnds: {
+    auctionEnds: {
       type: Date,
       default: null,
     },

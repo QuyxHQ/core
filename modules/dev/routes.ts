@@ -204,10 +204,7 @@ router.put(
   "/verify-otp",
   canAccessRoute(QUYX_USER.DEV),
   validate(verifyDevOTPSchema),
-  async function (
-    req: Request<{}, {}, VerifyDevOTP["body"]>,
-    res: Response<{}, QuyxLocals>
-  ) {
+  async function (req: Request<{}, {}, VerifyDevOTP["body"]>, res: Response<{}, QuyxLocals>) {
     try {
       const { identifier } = res.locals.meta;
       const { otp } = req.body;
@@ -298,10 +295,7 @@ router.post(
   "/sudo",
   canAccessRoute(QUYX_USER.DEV),
   validate(devSudoModeSchema),
-  async function (
-    req: Request<{}, {}, DevSudoMode["body"]>,
-    res: Response<{}, QuyxLocals>
-  ) {
+  async function (req: Request<{}, {}, DevSudoMode["body"]>, res: Response<{}, QuyxLocals>) {
     try {
       const { identifier } = res.locals.meta;
       const { password } = req.body;
@@ -510,7 +504,7 @@ router.put(
 
       return res.status(201).json({
         status: true,
-        message: "password changed successfully!",
+        message: "password changed successfully! proceed to login",
       });
     } catch (e: any) {
       return res.status(500).json({

@@ -10,22 +10,10 @@ import {
   editCardSchema,
   getUserCardSchema,
 } from "./schema";
-import {
-  countCards,
-  createCard,
-  deleteCard,
-  findCard,
-  findCards,
-  updateCard,
-} from "./service";
+import { countCards, createCard, findCard, findCards, updateCard } from "./service";
 import { v4 as uuidv4 } from "uuid";
 import { generateUsernameSuggestion } from "../../shared/utils/helpers";
-import {
-  findUser,
-  getBoughtCards,
-  getSoldCards,
-  increaseCardCount,
-} from "../user/service";
+import { findUser, getBoughtCards, getSoldCards, increaseCardCount } from "../user/service";
 
 const router = express.Router();
 
@@ -34,10 +22,7 @@ router.post(
   "/",
   canAccessRoute(QUYX_USER.USER),
   validate(createCardSchema),
-  async function (
-    req: Request<{}, {}, CreateCard["body"]>,
-    res: Response<{}, QuyxLocals>
-  ) {
+  async function (req: Request<{}, {}, CreateCard["body"]>, res: Response<{}, QuyxLocals>) {
     try {
       const { identifier } = res.locals.meta;
       const tempToken = uuidv4();
@@ -364,40 +349,5 @@ router.get("/:chainId/:cardId", async function (req: Request, res: Response) {
     });
   }
 });
-
-//# delete card
-router.delete(
-  "/:chainId/:cardId",
-  canAccessRoute([QUYX_USER.USER, QUYX_USER.STAFF]),
-  async function (req: Request, res: Response<{}, QuyxLocals>) {
-    try {
-      const { cardId, chainId } = req.params;
-      if (typeof cardId != "string" || typeof chainId != "string") {
-        return res.sendStatus(400);
-      }
-
-      const { identifier } = res.locals.meta;
-
-      const resp = await deleteCard({
-        identifier: cardId,
-        owner: identifier,
-        chainId,
-        isDeleted: false,
-      });
-
-      if (!resp) return res.sendStatus(409);
-
-      return res.json({
-        status: true,
-        message: "card deleted successfully!",
-      });
-    } catch (e: any) {
-      return res.status(500).json({
-        status: true,
-        message: e.message,
-      });
-    }
-  }
-);
 
 export = router;

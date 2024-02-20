@@ -46,6 +46,26 @@ export async function updateSDKUser(
   }
 }
 
+export async function updateManySDKUsers(
+  filter: mongoose.FilterQuery<SdkDoc>,
+  update: mongoose.UpdateQuery<QuyxSDKUser>
+) {
+  try {
+    const result = await Sdk.updateMany(filter, update);
+    return result.acknowledged && result.modifiedCount >= 1;
+  } catch (e: any) {
+    if (e && e instanceof mongoose.Error.ValidationError) {
+      for (let field in e.errors) {
+        const errorMsg = e.errors[field].message;
+
+        throw new Error(errorMsg);
+      }
+    }
+
+    throw new Error(e);
+  }
+}
+
 export async function findSDKUser(filter: mongoose.FilterQuery<SdkDoc>) {
   try {
     const result = await Sdk.findOne(filter).populate("card");

@@ -53,8 +53,8 @@ router.post(
 
       if (
         _card.isAuction &&
-        _card.aunctionEnds &&
-        new Date().getTime() > new Date(_card.aunctionEnds).getTime()
+        _card.auctionEnds &&
+        new Date().getTime() > new Date(_card.auctionEnds).getTime()
       ) {
         return res.status(409).json({
           status: false,
