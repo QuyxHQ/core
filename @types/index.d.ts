@@ -174,3 +174,7 @@ type MoralisStreamResponse = {
   nftTransfers: any[];
   nativeBalances: any[];
 };
+
+type QuyxAiWaitlist = Base & {
+  dev: string;
+};

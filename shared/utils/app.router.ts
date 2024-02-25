@@ -10,6 +10,7 @@ import logRoutes from "../../modules/log/routes";
 import sdkRoutes from "../../modules/sdk/routes";
 import webhookRoutes from "../../modules/webhook/routes";
 import marketplaceRoutes from "../../modules/marketplace/routes";
+import aiWaitlistRoutes from "../../modules/ai-waitlist/routes";
 
 const router = express.Router();
 
@@ -30,5 +31,6 @@ router.use("/log", logRoutes);
 router.use("/sdk", sdkRoutes);
 router.use("/webhook", webhookRoutes);
 router.use("/marketplace", marketplaceRoutes);
+router.use("/ai-waitlist", aiWaitlistRoutes);
 
 export = router;

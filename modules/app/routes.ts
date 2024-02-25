@@ -35,6 +35,20 @@ router.post(
         });
       }
 
+      //# check for duplicate app name
+      const appNameOccurance = await countApps({
+        owner: identifier,
+        name: req.body.name,
+        isActive: true,
+      });
+
+      if (appNameOccurance > 0) {
+        return res.status(409).json({
+          status: false,
+          message: "app with similar name exists on this account",
+        });
+      }
+
       const apiKey = uuidv4();
       const clientID = generateHash();
 
