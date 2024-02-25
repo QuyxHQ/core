@@ -3,12 +3,30 @@ import { canAccessRoute } from "../../shared/utils/validators";
 import { QUYX_USER } from "../../shared/utils/constants";
 import { findSession, findSessions, updateSession } from "./service";
 import { v4 as uuidv4 } from "uuid";
+import { dateUTC } from "../../shared/utils/helpers";
 
 const router = express.Router();
 
 router.get("/nonce", async function (req: Request, res: Response) {
   try {
-    // req.session.nonce = uuidv4();
+    const nonce = uuidv4();
+    const issuedAt = dateUTC().toISOString();
+    const expirationDate = dateUTC(dateUTC().getTime() + 5 * 60 * 1000).toISOString();
+
+    (req.session as any).nonce = nonce;
+    (req.session as any).issuedAt = issuedAt;
+    (req.session as any).expirationDate = expirationDate;
+    req.session.save();
+
+    return res.json({
+      status: true,
+      message: "fetched nonce",
+      data: {
+        nonce,
+        issuedAt,
+        expirationDate,
+      },
+    });
   } catch (e: any) {
     return res.status(500).json({
       status: false,

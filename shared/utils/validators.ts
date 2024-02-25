@@ -5,12 +5,19 @@ import { addLog } from "../../modules/log/service";
 import { QUYX_LOG_STATUS } from "./constants";
 import { ethers } from "ethers";
 import config from "./config";
+import { dateUTC } from "./helpers";
 
 type Props = (typeof QUYX_USERS)[number];
+
 export function canAccessRoute(role: Props | Props[]) {
   return async function (req: Request, res: Response<{}, QuyxLocals>, next: NextFunction) {
-    const start = Date.now();
-    if (!res.locals.meta) return res.sendStatus(401);
+    const start = dateUTC().getTime();
+    if (!res.locals.meta) {
+      return res.status(401).json({
+        status: false,
+        message: "not authorized to acess this route",
+      });
+    }
 
     if (typeof role === "string" && res.locals.meta.role !== role) {
       if (res.locals.meta.app) {
@@ -23,15 +30,19 @@ export function canAccessRoute(role: Props | Props[]) {
           status: QUYX_LOG_STATUS.FAILED,
           route: "*",
           log: JSON.stringify({
-            status: false,
             message: "not authorized to acess this route",
-            data: { body: req.body, params: req.params, query: req.query },
+            body: req.body,
+            params: req.params,
+            query: req.query,
           }),
-          responseTime: Date.now() - start,
+          responseTime: dateUTC().getTime() - start,
         });
       }
 
-      return res.sendStatus(401);
+      return res.status(401).json({
+        status: false,
+        message: "not authorized to acess this route",
+      });
     }
 
     if (Array.isArray(role) && !role.includes(res.locals.meta.role)) {
@@ -45,11 +56,12 @@ export function canAccessRoute(role: Props | Props[]) {
           status: QUYX_LOG_STATUS.FAILED,
           route: "*",
           log: JSON.stringify({
-            status: false,
             message: "not authorized to acess this route",
-            data: { body: req.body, params: req.params, query: req.query },
+            body: req.body,
+            params: req.params,
+            query: req.query,
           }),
-          responseTime: Date.now() - start,
+          responseTime: dateUTC().getTime() - start,
         });
       }
 
@@ -69,7 +81,12 @@ export async function hasAccessToSDK(
   if (apiKey) {
     //# check that apiKey is valid...(xxxxxx)
     const app = await findApp({ apiKey });
-    if (!app) return res.sendStatus(401);
+    if (!app) {
+      return res.status(401).json({
+        status: false,
+        message: "invalid apiKey passed",
+      });
+    }
 
     res.locals.meta.app = app;
     return next();
@@ -77,14 +94,29 @@ export async function hasAccessToSDK(
 
   //# no apiKey? check for clientID then.....
   const clientID = get(req, "headers.quyx-client-id") ?? null;
-  if (!clientID) return res.sendStatus(401);
+  if (!clientID) {
+    return res.status(401).json({
+      status: false,
+      message: "apiKey/clientID is missing",
+    });
+  }
 
   const app = await findApp({ clientID });
-  if (!app) return res.sendStatus(401);
+  if (!app) {
+    return res.status(401).json({
+      status: false,
+      message: "invalid apiKey passed",
+    });
+  }
 
   if (app.allowedBundleIDs) {
     const bundleID = (get(req, "headers.bundle-id") as string) ?? null;
-    if (!bundleID || !app.allowedBundleIDs.includes(bundleID)) return res.sendStatus(401);
+    if (!bundleID || !app.allowedBundleIDs.includes(bundleID)) {
+      return res.status(401).json({
+        status: false,
+        message: "access blocked from origin",
+      });
+    }
   }
 
   if (app.allowedDomains) {
@@ -94,7 +126,10 @@ export async function hasAccessToSDK(
       !domain ||
       (!app.allowedDomains.includes(domain) && domain != new URL(config.DEV_BASE_URL).hostname)
     ) {
-      return res.sendStatus(401);
+      return res.status(401).json({
+        status: false,
+        message: "access blocked from origin",
+      });
     }
   }
 

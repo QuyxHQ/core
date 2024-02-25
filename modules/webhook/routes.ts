@@ -14,6 +14,7 @@ import {
 import { findUser } from "../user/service";
 import { updateManyReferral } from "../referral/service";
 import { updateManySDKUsers } from "../sdk/service";
+import { dateUTC } from "../../shared/utils/helpers";
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ router.post(
         isDeleted: false,
         isAuction: true,
         auctionEnds: {
-          $lte: new Date(),
+          $lte: dateUTC(),
         },
       });
 
@@ -38,7 +39,7 @@ router.post(
           isDeleted: false,
           isAuction: true,
           auctionEnds: {
-            $lte: new Date(),
+            $lte: dateUTC(),
           },
         },
         { limit: countOfOpenAuctionThatAreExpired, page: 1 }
@@ -87,7 +88,7 @@ router.post(
           const cardId = parseInt(decodedLog.args.cardId.toString() as string);
           // const referredBy = decodedLog.args.referredBy; - send a mail to referall later in future
           const amount = parseInt(ethers.utils.formatEther(decodedLog.args.amount));
-          const timestamp = new Date(decodedLog.args.timestamp);
+          const timestamp = dateUTC(decodedLog.args.timestamp);
 
           const card = await findCard({
             identifier: cardId,
@@ -149,7 +150,7 @@ router.post(
           const maxNumberOfBids = parseInt(
             decodedLog.args.maxNumberOfBids.toString() as string
           );
-          const end = new Date(decodedLog.args.end);
+          const end = dateUTC(decodedLog.args.end);
 
           //# update the card to the latest value
           await updateCard(

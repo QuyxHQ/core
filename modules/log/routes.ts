@@ -4,6 +4,7 @@ import { QUYX_LOG_STATUS, QUYX_USER } from "../../shared/utils/constants";
 import { avgLogs, countLog, findLogs } from "./service";
 import { countSDKUsers } from "../sdk/service";
 import { countApps } from "../app/service";
+import { dateUTC } from "../../shared/utils/helpers";
 
 const router = express.Router();
 
@@ -15,13 +16,13 @@ router.get(
       const { identifier } = res.locals.meta;
       const { id: app } = req.params;
 
-      const min5 = new Date();
+      const min5 = dateUTC();
       min5.setMinutes(min5.getMinutes() - 5);
 
-      const hour1 = new Date();
+      const hour1 = dateUTC();
       hour1.setHours(hour1.getHours() - 1);
 
-      const hour24 = new Date();
+      const hour24 = dateUTC();
       hour24.setHours(hour24.getHours() - 24);
 
       const [
@@ -246,14 +247,14 @@ router.get(
         status: QUYX_LOG_STATUS.SUCCESSFUL,
         app,
         dev: identifier,
-        createdAt: { $gte: new Date(from), $lt: new Date(to) },
+        createdAt: { $gte: dateUTC(from), $lt: dateUTC(to) },
       });
 
       const failed_requests = await countLog({
         status: QUYX_LOG_STATUS.FAILED,
         app,
         dev: identifier,
-        createdAt: { $gte: new Date(from), $lt: new Date(to) },
+        createdAt: { $gte: dateUTC(from), $lt: dateUTC(to) },
       });
 
       return res.json({
@@ -311,7 +312,7 @@ router.get(
     try {
       const { identifier } = res.locals.meta;
 
-      const hour24 = new Date();
+      const hour24 = dateUTC();
       hour24.setHours(hour24.getHours() - 24);
 
       const success_24 = await countLog({
@@ -351,10 +352,10 @@ router.get(
     try {
       const { identifier } = res.locals.meta;
 
-      const week1 = new Date();
+      const week1 = dateUTC();
       week1.setHours(week1.getHours() - 24 * 7);
 
-      const week2 = new Date();
+      const week2 = dateUTC();
       week2.setHours(week1.getHours() - 24 * 7);
 
       const requests_week_1 = await countLog({
@@ -396,13 +397,13 @@ router.get(
       const successful_requests = await countLog({
         status: QUYX_LOG_STATUS.SUCCESSFUL,
         dev: identifier,
-        createdAt: { $gte: new Date(from), $lt: new Date(to) },
+        createdAt: { $gte: dateUTC(from), $lt: dateUTC(to) },
       });
 
       const failed_requests = await countLog({
         status: QUYX_LOG_STATUS.FAILED,
         dev: identifier,
-        createdAt: { $gte: new Date(from), $lt: new Date(to) },
+        createdAt: { $gte: dateUTC(from), $lt: dateUTC(to) },
       });
 
       return res.json({

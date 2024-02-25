@@ -10,7 +10,7 @@ import { createSession } from "../session/service";
 import config from "../../shared/utils/config";
 import { canAccessRoute } from "../../shared/utils/validators";
 import { omit } from "lodash";
-import { generateOTP, generateUsernameSuggestion } from "../../shared/utils/helpers";
+import { dateUTC, generateOTP, generateUsernameSuggestion } from "../../shared/utils/helpers";
 import { sendKYCMail } from "../../shared/utils/mailer";
 
 const router = express.Router();
@@ -22,6 +22,14 @@ router.post(
   async function (req: Request<{}, {}, SIWE["body"]>, res: Response) {
     try {
       const { message, signature } = req.body;
+
+      if (message.nonce != (req.session as any).nonce) {
+        req.session.destroy(() => {});
+        return res.status(422).json({
+          status: false,
+          message: "invalid nonce set",
+        });
+      }
 
       const messageSIWE = new SiweMessage(message);
       const resp = await messageSIWE.verify({
@@ -149,7 +157,7 @@ router.put(
           email,
           pfp,
           ...(username != user!.username
-            ? { changedUsernameLastOn: new Date(), hasBlueTick: false }
+            ? { changedUsernameLastOn: dateUTC(), hasBlueTick: false }
             : {}),
         }
       );
@@ -196,7 +204,9 @@ router.post(
         { _id: identifier },
         {
           emailVerificationCode: otp,
-          emailVerificationCodeExpiry: new Date(Date.now() + parseInt(config.KYC_OTP_TTL)),
+          emailVerificationCodeExpiry: dateUTC(
+            dateUTC().getTime() + parseInt(config.KYC_OTP_TTL)
+          ),
         }
       );
 
@@ -240,7 +250,10 @@ router.post(
         });
       }
 
-      if (new Date().getTime() > new Date(user!.emailVerificationCodeExpiry!).getTime()) {
+      if (
+        !user!.emailVerificationCodeExpiry ||
+        dateUTC().getTime() > dateUTC(user!.emailVerificationCodeExpiry).getTime()
+      ) {
         return res.status(400).json({
           status: false,
           message: "OTP code has expired, request a new one",

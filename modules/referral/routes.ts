@@ -17,6 +17,7 @@ import {
 } from "./service";
 import { findCard } from "../card/service";
 import config from "../../shared/utils/config";
+import { dateUTC } from "../../shared/utils/helpers";
 
 const router = express.Router();
 
@@ -54,7 +55,7 @@ router.post(
       if (
         _card.isAuction &&
         _card.auctionEnds &&
-        new Date().getTime() > new Date(_card.auctionEnds).getTime()
+        dateUTC().getTime() > dateUTC(_card.auctionEnds).getTime()
       ) {
         return res.status(409).json({
           status: false,

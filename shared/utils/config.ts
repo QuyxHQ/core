@@ -20,6 +20,8 @@ let {
   MORALIS_SECRET,
   SENTRY_DSN,
   CRON_KEY,
+  EXPRESS_SESSION_SECRET,
+  ENV,
 } = process.env;
 
 ACCESS_TOKEN_TTL = ACCESS_TOKEN_TTL || "5m";
@@ -35,6 +37,10 @@ DEV_BASE_URL = DEV_BASE_URL || "http://localhost:5173";
 CLIENT_BASE_URL = CLIENT_BASE_URL || "http://localhost:5173";
 MORALIS_SECRET = MORALIS_SECRET || "";
 SENTRY_DSN = SENTRY_DSN || "";
+EXPRESS_SESSION_SECRET = EXPRESS_SESSION_SECRET || "";
+ENV = ENV || "test";
+
+const IS_PROD = ENV === "production";
 
 export default {
   APP_PRIVATE_KEY,
@@ -54,4 +60,7 @@ export default {
   MORALIS_SECRET,
   SENTRY_DSN,
   CRON_KEY,
+  EXPRESS_SESSION_SECRET,
+  ENV,
+  IS_PROD,
 };

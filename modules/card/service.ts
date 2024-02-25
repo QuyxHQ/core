@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Card, { CardDoc } from "./model";
+import { dateUTC } from "../../shared/utils/helpers";
 
 export async function createCard(
   data: Omit<
@@ -111,7 +112,7 @@ export async function deleteCard(filter: mongoose.FilterQuery<CardDoc>) {
 
 export async function getTopTags(limit: number) {
   try {
-    const hour24 = new Date();
+    const hour24 = dateUTC();
     hour24.setHours(hour24.getHours() - 24);
 
     const topTags = await Card.aggregate([

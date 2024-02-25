@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const changeCardSDKSchema = z.object({
   params: z.object({
-    id: z.string(),
+    id: z.string().regex(/^[0-9a-fA-F]{24}$/),
   }),
 });
 

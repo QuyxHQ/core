@@ -27,6 +27,7 @@ import { canAccessRoute } from "../../shared/utils/validators";
 import { QUYX_USER } from "../../shared/utils/constants";
 import {
   comparePasswords,
+  dateUTC,
   generateHash,
   generateOTP,
   hashPassword,
@@ -58,7 +59,9 @@ router.post(
       const resp = await createDev({
         ...req.body,
         emailVerificationOTP: otp,
-        emailVerificationOTPExpiry: new Date(Date.now() + parseInt(config.KYC_OTP_TTL)),
+        emailVerificationOTPExpiry: dateUTC(
+          dateUTC().getTime() + parseInt(config.KYC_OTP_TTL)
+        ),
         password,
       });
 
@@ -241,7 +244,10 @@ router.put(
         });
       }
 
-      if (new Date().getTime() > new Date(dev!.emailVerificationOTPExpiry!).getTime()) {
+      if (
+        !dev!.emailVerificationOTPExpiry ||
+        dateUTC().getTime() > dateUTC(dev!.emailVerificationOTPExpiry).getTime()
+      ) {
         return res.status(400).json({
           status: false,
           message: "OTP code has expired, request a new one",
@@ -291,7 +297,9 @@ router.put(
         { _id: identifier },
         {
           emailVerificationOTP: otp,
-          emailVerificationOTPExpiry: new Date(Date.now() + parseInt(config.KYC_OTP_TTL)),
+          emailVerificationOTPExpiry: dateUTC(
+            dateUTC().getTime() + parseInt(config.KYC_OTP_TTL)
+          ),
         }
       );
 
@@ -333,7 +341,7 @@ router.post(
         });
       }
 
-      await updateDev({ _id: identifier }, { verifiedPasswordLastOn: new Date() });
+      await updateDev({ _id: identifier }, { verifiedPasswordLastOn: dateUTC() });
       return res.json({
         status: true,
         message: "sudo mode entered",
@@ -360,8 +368,8 @@ router.put(
       //# check if still in sudo mode
       if (
         !dev!.verifiedPasswordLastOn ||
-        new Date(dev!.verifiedPasswordLastOn).getTime() + parseInt(config.SUDO_TTL) <
-          Date.now()
+        dateUTC(dev!.verifiedPasswordLastOn).getTime() + parseInt(config.SUDO_TTL) <
+          dateUTC().getTime()
       ) {
         return res.status(401).json({
           status: false,
@@ -440,7 +448,7 @@ router.put(
         { email },
         {
           forgetPasswordHash: hash,
-          forgetPasswordHashExpiry: new Date(Date.now() + parseInt(config.HASH_TTL)),
+          forgetPasswordHashExpiry: dateUTC(dateUTC().getTime() + parseInt(config.HASH_TTL)),
         }
       );
 
@@ -474,7 +482,10 @@ router.get(
       const dev = await findDev({ forgetPasswordHash: hash });
       if (!dev) return res.sendStatus(404);
 
-      if (new Date().getTime() > new Date(dev.forgetPasswordHashExpiry!).getTime()) {
+      if (
+        !dev.forgetPasswordHashExpiry ||
+        dateUTC().getTime() > dateUTC(dev.forgetPasswordHashExpiry).getTime()
+      ) {
         return res.status(400).json({
           status: false,
           message: "link has expired, request a new one",
@@ -516,7 +527,10 @@ router.put(
       const dev = await findDev({ forgetPasswordHash: hash });
       if (!dev) return res.sendStatus(404);
 
-      if (new Date().getTime() > new Date(dev.forgetPasswordHashExpiry!).getTime()) {
+      if (
+        !dev.forgetPasswordHashExpiry ||
+        dateUTC().getTime() > dateUTC(dev.forgetPasswordHashExpiry).getTime()
+      ) {
         return res.status(400).json({
           status: false,
           message: "link has expired, request a new one",
