@@ -120,3 +120,22 @@ export async function sendCardBoughtMail(data: {
 
   await mailerSdk.send({ receiver: data.email, subject, html });
 }
+
+export async function sendAuctionEndedMail(data: {
+  email: string;
+  username: string;
+  chainId: (typeof QUYX_NETWORKS)[number];
+  cardId: number;
+}) {
+  const html = `<p>Hello ${data.username}, Good day from quyx</p>
+  <p>Card #${data.cardId} which you placed for auction has elapsed it's time limit and it's waiting for you to end it. If nothing gets done after 24 hours, we will have to end it on our end.</p>
+  <p><strong>Chain ID: </strong>${data.chainId}</p>
+  <p><strong>URL: </strong><a href="${config.CLIENT_BASE_URL}/card/${data.cardId}">view card</a></p>
+  <br/>
+  <br/>
+  <p>Best Regards,</p>
+  <p>Quyx Team ✨</p>`;
+  const subject = `Quyx <-> Card #${data.cardId} Auction has elapsed`;
+
+  await mailerSdk.send({ receiver: data.email, subject, html });
+}

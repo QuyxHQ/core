@@ -6,8 +6,6 @@ export const registerDevSchema = z.object({
     firstName: z.string(),
     lastName: z.string(),
     company: z.string().nullable(),
-    role: z.string(),
-    heardUsFrom: z.string(),
     password: z.string(),
   }),
 });
@@ -19,13 +17,19 @@ export const loginDevSchema = z.object({
   }),
 });
 
+export const onboardUserSchema = z.object({
+  body: z.strictObject({
+    role: z.string(),
+    heardUsFrom: z.string(),
+  }),
+});
+
 export const editDevSchema = z.object({
   body: z.strictObject({
     email: z.string().email(),
     firstName: z.string(),
     lastName: z.string(),
     company: z.string().nullable(),
-    role: z.string(),
   }),
 });
 
@@ -72,6 +76,7 @@ export const resetDevPasswordSchema = z.object({
 export type RegisterDev = z.TypeOf<typeof registerDevSchema>;
 export type LoginDev = z.TypeOf<typeof loginDevSchema>;
 export type EditDev = z.TypeOf<typeof editDevSchema>;
+export type OnboardUser = z.TypeOf<typeof onboardUserSchema>;
 export type ChangeDevPassword = z.TypeOf<typeof changeDevPasswordSchema>;
 export type VerifyDevOTP = z.TypeOf<typeof verifyDevOTPSchema>;
 export type DevSudoMode = z.TypeOf<typeof devSudoModeSchema>;

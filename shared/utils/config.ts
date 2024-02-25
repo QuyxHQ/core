@@ -20,7 +20,6 @@ let {
   MORALIS_SECRET,
   SENTRY_DSN,
   CRON_KEY,
-  PRIVATE_KEY,
 } = process.env;
 
 ACCESS_TOKEN_TTL = ACCESS_TOKEN_TTL || "5m";
@@ -55,5 +54,4 @@ export default {
   MORALIS_SECRET,
   SENTRY_DSN,
   CRON_KEY,
-  PRIVATE_KEY,
 };

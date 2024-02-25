@@ -8,6 +8,8 @@ export async function createDev(
     | "isEmailVerified"
     | "forgetPasswordHash"
     | "forgetPasswordHashExpiry"
+    | "role"
+    | "heardUsFrom"
   >
 ) {
   try {

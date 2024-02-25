@@ -64,9 +64,53 @@ router.get(
 
       const { identifier } = res.locals.meta;
 
-      const totalApps = await countApps({ owner: identifier });
+      const totalApps = await countApps({ owner: identifier, isActive: true });
       const apps = await findApps(
-        { owner: identifier },
+        { owner: identifier, isActive: true },
+        { limit: parseInt(limit), page: parseInt(page) }
+      );
+
+      return res.json({
+        status: true,
+        message: "fetched apps",
+        data: apps,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          skip: (parseInt(page) - 1) * parseInt(limit),
+          total: totalApps,
+        },
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
+
+router.get(
+  "/search",
+  canAccessRoute(QUYX_USER.DEV),
+  async function (req: Request, res: Response<{}, QuyxLocals>) {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== "string") return res.sendStatus(400);
+
+      const { limit = "10", page = "1" } = req.query as any;
+      if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
+
+      const { identifier } = res.locals.meta;
+
+      const totalApps = await countApps({
+        owner: identifier,
+        isActive: true,
+        name: { $regex: q, $options: "i" },
+      });
+
+      const apps = await findApps(
+        { owner: identifier, isActive: true, name: { $regex: q, $options: "i" } },
         { limit: parseInt(limit), page: parseInt(page) }
       );
 
@@ -100,7 +144,7 @@ router.get(
       const { id } = req.params;
       const { identifier } = res.locals.meta;
 
-      const app = await findApp({ _id: id, owner: identifier });
+      const app = await findApp({ _id: id, isActive: true, owner: identifier });
       if (!app) return res.sendStatus(404);
 
       return res.status(200).json({
@@ -130,7 +174,7 @@ router.put(
       const { id } = req.params;
       const { identifier } = res.locals.meta;
 
-      const resp = await updateApp({ _id: id, owner: identifier }, req.body);
+      const resp = await updateApp({ _id: id, isActive: true, owner: identifier }, req.body);
       if (!resp) return res.sendStatus(409);
 
       return res.status(201).json({
@@ -156,7 +200,7 @@ router.delete(
       const { id } = req.params;
       const { identifier } = res.locals.meta;
 
-      const resp = await deleteApp({ _id: id, owner: identifier });
+      const resp = await deleteApp({ _id: id, isActive: true, owner: identifier });
       if (!resp) return res.sendStatus(409);
 
       return res.status(201).json({

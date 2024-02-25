@@ -2,8 +2,20 @@ import express, { Request, Response } from "express";
 import { canAccessRoute } from "../../shared/utils/validators";
 import { QUYX_USER } from "../../shared/utils/constants";
 import { findSession, findSessions, updateSession } from "./service";
+import { v4 as uuidv4 } from "uuid";
 
 const router = express.Router();
+
+router.get("/nonce", async function (req: Request, res: Response) {
+  try {
+    // req.session.nonce = uuidv4();
+  } catch (e: any) {
+    return res.status(500).json({
+      status: false,
+      message: e.message,
+    });
+  }
+});
 
 //# Get current session
 router.get(
@@ -57,9 +69,9 @@ router.get(
 router.delete(
   "/",
   canAccessRoute([QUYX_USER.DEV, QUYX_USER.SDK_USER, QUYX_USER.STAFF, QUYX_USER.USER]),
-  async function (_: Request, res: Response) {
+  async function (_: Request, res: Response<{}, QuyxLocals>) {
     try {
-      const { session } = res.locals;
+      const { session } = res.locals.meta;
 
       const resp = await updateSession({ _id: session }, { isActive: false });
       if (!resp) return res.sendStatus(409);

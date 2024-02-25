@@ -1,11 +1,6 @@
 import { customAlphabet } from "nanoid";
 import { generateUsername } from "unique-username-generator";
 import bcryptjs from "bcryptjs";
-import log from "./log";
-import info from "../../contract/info.json";
-import abi from "../../contract/abi.json";
-import { ethers } from "ethers";
-import config from "./config";
 
 export function generateOTP() {
   const nanoid = customAlphabet("0123456789", 6);
@@ -36,23 +31,4 @@ export async function hashPassword(password: string) {
 
 export async function comparePasswords(password: string, passwordHash: string) {
   return await bcryptjs.compare(password, passwordHash);
-}
-
-export async function endAuctionOnChain(
-  chainId: (typeof QUYX_NETWORKS)[number],
-  cardId: number
-) {
-  try {
-    const data = info.find((item) => String(parseInt(item.chainId, 16)) == chainId);
-    if (!data) throw new Error("unsupported chainId passed");
-
-    const Provider = new ethers.providers.JsonRpcProvider(data.urls.rpc);
-    const Signer = new ethers.Wallet(config.PRIVATE_KEY!, Provider);
-
-    const Contract = new ethers.Contract(data.contractAddress, abi, Signer);
-    await Contract.endAuction(cardId);
-  } catch (e: any) {
-    log.error(e);
-    throw new Error(e);
-  }
 }

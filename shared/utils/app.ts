@@ -43,6 +43,11 @@ function createServer() {
         "Authorization",
         "cache",
         "X-Refresh",
+        "X-Signature",
+        "Quyx-Api-Key",
+        "Quyx-Client-Id",
+        "Quyx-Cron-Key",
+        "Bundle-Id",
       ],
     })
   );
@@ -58,6 +63,18 @@ function createServer() {
 
   app.get("/healthz", (_, res: Response) => res.sendStatus(200));
   app.get("/supported-chains", (_, res: Response) => res.json(info));
+  app.get("/metadata", (_, res: Response) => {
+    return res.json({
+      status: true,
+      message: "metadata fetched",
+      data: {
+        SUDO_TTL: parseInt(config.SUDO_TTL),
+        KYC_OTP_TTL: parseInt(config.KYC_OTP_TTL),
+        HASH_TTL: parseInt(config.HASH_TTL),
+        APP_PUBLIC_KEY: config.APP_PUBLIC_KEY,
+      },
+    });
+  });
   app.use("/", appRouter);
 
   app.use(Sentry.Handlers.errorHandler());

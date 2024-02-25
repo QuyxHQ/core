@@ -23,11 +23,11 @@ const devSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      required: true,
+      default: null,
     },
     heardUsFrom: {
       type: String,
-      required: true,
+      default: null,
     },
     provider: {
       type: String,

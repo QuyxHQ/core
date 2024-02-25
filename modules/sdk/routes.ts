@@ -3,7 +3,6 @@ import { canAccessRoute, hasAccessToSDK } from "../../shared/utils/validators";
 import { QUYX_LOG_STATUS, QUYX_USER } from "../../shared/utils/constants";
 import { addLog } from "../log/service";
 import { SiweMessage } from "siwe";
-import { ethers } from "ethers";
 import { SIWE, SIWESchema } from "../user/schema";
 import validate from "../../shared/middlewares/validateSchema";
 import {
@@ -20,6 +19,7 @@ import { signJWT } from "../../shared/utils/jwt";
 import { countCards, findCard, findCards } from "../card/service";
 import { findUser } from "../user/service";
 import { ChangeCardSDK, GetSDKUsers, changeCardSDKSchema, getSDKUsersSchema } from "./schema";
+import { isAddress } from "ethers/lib/utils";
 
 const router = express.Router();
 
@@ -62,16 +62,11 @@ router.post(
       const { message, signature } = req.body;
 
       const messageSIWE = new SiweMessage(message);
-      const provider = ethers.getDefaultProvider();
-
-      const resp = await messageSIWE.verify(
-        {
-          signature,
-          domain: message.domain,
-          nonce: message.nonce,
-        },
-        { provider }
-      );
+      const resp = await messageSIWE.verify({
+        signature,
+        domain: message.domain,
+        nonce: message.nonce,
+      });
 
       if (!resp.success) {
         const log = {
@@ -606,15 +601,16 @@ router.get(
         status: true,
         message: "fetched users",
         data: result,
-        pagination:
-          limit && page
-            ? {
+        ...(limit && page
+          ? {
+              pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
                 skip: (parseInt(page) - 1) * parseInt(limit),
                 total: totalResults,
-              }
-            : undefined,
+              },
+            }
+          : {}),
       });
     } catch (e: any) {
       const log = {
@@ -643,7 +639,7 @@ router.get(
 
 //# get info from address
 router.get(
-  "/user/:address",
+  "/user/single/:address",
   hasAccessToSDK,
   async function (req: Request, res: Response<{}, QuyxLocals>) {
     const { app } = res.locals.meta;
@@ -651,7 +647,7 @@ router.get(
     const start = Date.now();
 
     try {
-      if (!address || typeof address !== "string") {
+      if (!address || typeof address !== "string" || !isAddress(address)) {
         await _log({
           app: app!._id,
           dev: app!.owner,

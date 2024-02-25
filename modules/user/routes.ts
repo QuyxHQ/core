@@ -1,15 +1,7 @@
 import express, { Request, Response } from "express";
 import validate from "../../shared/middlewares/validateSchema";
-import {
-  EditUser,
-  SIWE,
-  SIWESchema,
-  VerifyKYC,
-  editUserSchema,
-  verifyKYC,
-} from "./schema";
+import { EditUser, SIWE, SIWESchema, VerifyKYC, editUserSchema, verifyKYC } from "./schema";
 import { SiweMessage } from "siwe";
-import { ethers } from "ethers";
 import { countUsers, findUser, findUsers, updateUser, upsertUser } from "./service";
 import { generateUsername } from "unique-username-generator";
 import { signJWT } from "../../shared/utils/jwt";
@@ -32,16 +24,11 @@ router.post(
       const { message, signature } = req.body;
 
       const messageSIWE = new SiweMessage(message);
-      const provider = ethers.getDefaultProvider();
-
-      const resp = await messageSIWE.verify(
-        {
-          signature,
-          domain: message.domain,
-          nonce: message.nonce,
-        },
-        { provider }
-      );
+      const resp = await messageSIWE.verify({
+        signature,
+        domain: message.domain,
+        nonce: message.nonce,
+      });
 
       if (!resp.success) {
         return res.status(400).json({
@@ -64,11 +51,7 @@ router.post(
       });
 
       //# Creating a session
-      const session = await createSession(
-        user._id,
-        QUYX_USER.USER,
-        req.get("user-agent")
-      );
+      const session = await createSession(user._id, QUYX_USER.USER, req.get("user-agent"));
 
       //# creating the payload
       const payload = {
@@ -213,9 +196,7 @@ router.post(
         { _id: identifier },
         {
           emailVerificationCode: otp,
-          emailVerificationCodeExpiry: new Date(
-            Date.now() + parseInt(config.KYC_OTP_TTL)
-          ),
+          emailVerificationCodeExpiry: new Date(Date.now() + parseInt(config.KYC_OTP_TTL)),
         }
       );
 
@@ -245,10 +226,7 @@ router.post(
   "/kyc/verify",
   canAccessRoute(QUYX_USER.USER),
   validate(verifyKYC),
-  async function (
-    req: Request<{}, {}, VerifyKYC["body"]>,
-    res: Response<{}, QuyxLocals>
-  ) {
+  async function (req: Request<{}, {}, VerifyKYC["body"]>, res: Response<{}, QuyxLocals>) {
     try {
       const { identifier } = res.locals.meta;
       const user = await findUser({ _id: identifier });

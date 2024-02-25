@@ -6,6 +6,7 @@ import {
   EditDev,
   ForgotDevPassword,
   LoginDev,
+  OnboardUser,
   RegisterDev,
   ResetDevPassword,
   VerifyDevOTP,
@@ -15,6 +16,7 @@ import {
   editDevSchema,
   forgotDevPasswordSchema,
   loginDevSchema,
+  onboardUserSchema,
   registerDevSchema,
   resetDevPasswordSchema,
   verifyDevOTPSchema,
@@ -105,6 +107,28 @@ router.post(
   }
 );
 
+router.put(
+  "/onboard",
+  canAccessRoute(QUYX_USER.DEV),
+  validate(onboardUserSchema),
+  async function (req: Request<{}, {}, OnboardUser["body"]>, res: Response<{}, QuyxLocals>) {
+    try {
+      const { identifier } = res.locals.meta;
+
+      await updateDev({ _id: identifier }, req.body);
+      return res.status(201).json({
+        status: true,
+        message: "onboarding completed!",
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
+
 //# log dev in
 router.post(
   "/login",
@@ -182,7 +206,7 @@ router.get(
       return res.json({
         status: true,
         message: "fetched dev",
-        data: omit(dev, [
+        data: omit(dev.toJSON(), [
           "emailVerificationOTP",
           "emailVerificationOTPExpiry",
           "forgetPasswordHash",
@@ -210,17 +234,17 @@ router.put(
       const { otp } = req.body;
 
       const dev = await findDev({ _id: identifier });
+      if (dev!.emailVerificationOTP !== otp) {
+        return res.status(409).json({
+          status: false,
+          message: "wrong OTP code provided",
+        });
+      }
+
       if (new Date().getTime() > new Date(dev!.emailVerificationOTPExpiry!).getTime()) {
         return res.status(400).json({
           status: false,
           message: "OTP code has expired, request a new one",
-        });
-      }
-
-      if (dev!.emailVerificationOTP !== otp) {
-        return res.status(409).json({
-          status: false,
-          message: "Wrong OTP code provided",
         });
       }
 

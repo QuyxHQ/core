@@ -90,7 +90,12 @@ export async function hasAccessToSDK(
   if (app.allowedDomains) {
     const origin = get(req, "headers.origin") ?? get(req, "headers.referer") ?? null;
     const domain = origin ? new URL(origin).hostname : null;
-    if (!domain || !app.allowedDomains.includes(domain)) return res.sendStatus(401);
+    if (
+      !domain ||
+      (!app.allowedDomains.includes(domain) && domain != new URL(config.DEV_BASE_URL).hostname)
+    ) {
+      return res.sendStatus(401);
+    }
   }
 
   res.locals.meta.app = app;

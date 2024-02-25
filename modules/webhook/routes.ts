@@ -5,6 +5,7 @@ import { ethers } from "ethers";
 import { addBid, findBid } from "../bid/service";
 import { countCards, deleteCard, findCard, findCards, updateCard } from "../card/service";
 import {
+  sendAuctionEndedMail,
   sendBidPlacedMail,
   sendCardBoughtMail,
   sendCardTransferredToMail,
@@ -12,7 +13,6 @@ import {
 } from "../../shared/utils/mailer";
 import { findUser } from "../user/service";
 import { updateManyReferral } from "../referral/service";
-import { endAuctionOnChain } from "../../shared/utils/helpers";
 import { updateManySDKUsers } from "../sdk/service";
 
 const router = express.Router();
@@ -26,6 +26,7 @@ router.post(
       const countOfOpenAuctionThatAreExpired = await countCards({
         isForSale: true,
         isDeleted: false,
+        isAuction: true,
         auctionEnds: {
           $lte: new Date(),
         },
@@ -35,6 +36,7 @@ router.post(
         {
           isForSale: true,
           isDeleted: false,
+          isAuction: true,
           auctionEnds: {
             $lte: new Date(),
           },
@@ -46,7 +48,15 @@ router.post(
         //# loop and end them.....
         for (let auctions of endedButActiveAuctions) {
           //# helper fn to end it on chain
-          await endAuctionOnChain(auctions.chainId, auctions.identifier!);
+          const owner = await findUser({ _id: auctions.owner });
+          if (owner && owner.email) {
+            await sendAuctionEndedMail({
+              cardId: auctions.identifier!,
+              chainId: auctions.chainId as (typeof QUYX_NETWORKS)[number],
+              email: owner.email,
+              username: owner.username,
+            });
+          }
         }
       }
 

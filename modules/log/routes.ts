@@ -2,6 +2,8 @@ import express, { Request, Response } from "express";
 import { canAccessRoute } from "../../shared/utils/validators";
 import { QUYX_LOG_STATUS, QUYX_USER } from "../../shared/utils/constants";
 import { avgLogs, countLog, findLogs } from "./service";
+import { countSDKUsers } from "../sdk/service";
+import { countApps } from "../app/service";
 
 const router = express.Router();
 
@@ -30,6 +32,7 @@ router.get(
         requests_hour24,
         total_requests,
         avg_response_time_min5,
+        total_users,
       ] = await Promise.all([
         countLog({
           status: QUYX_LOG_STATUS.SUCCESSFUL,
@@ -66,10 +69,18 @@ router.get(
           app,
           createdAt: { $gte: min5 },
         }),
+        countSDKUsers({ app, isActive: true }),
       ]);
 
-      const successRate_hour1 = (success_hour1 / (success_hour1 + failed_hour1)) * 100;
-      const successRate_hour24 = (success_hour24 / (success_hour24 + failed_hour24)) * 100;
+      const successRate_hour1 =
+        success_hour1 + failed_hour1 == 0
+          ? 0
+          : (success_hour1 / (success_hour1 + failed_hour1)) * 100;
+
+      const successRate_hour24 =
+        success_hour1 + failed_hour1 == 0
+          ? 0
+          : (success_hour24 / (success_hour24 + failed_hour24)) * 100;
 
       return res.status(200).json({
         status: true,
@@ -84,6 +95,7 @@ router.get(
           avg_response_time_min5,
           successRate_hour1,
           successRate_hour24,
+          total_users,
         },
       });
     } catch (e: any) {
@@ -246,9 +258,40 @@ router.get(
 
       return res.json({
         status: true,
+        message: "fetched",
         data: {
           successful_requests,
           failed_requests,
+        },
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
+
+//# total requests & total Apps (dev)
+router.get(
+  "/dev/metadata",
+  canAccessRoute(QUYX_USER.DEV),
+  async function (_: Request, res: Response<{}, QuyxLocals>) {
+    try {
+      const { identifier } = res.locals.meta;
+
+      const [total_requests, total_apps] = await Promise.all([
+        countLog({ dev: identifier }),
+        countApps({ owner: identifier, isActive: true }),
+      ]);
+
+      return res.json({
+        status: true,
+        message: "fetched",
+        data: {
+          total_apps,
+          total_requests,
         },
       });
     } catch (e: any) {
@@ -285,6 +328,7 @@ router.get(
 
       return res.json({
         status: true,
+        message: "fetched",
         data: {
           success_24,
           failed_24,
@@ -325,6 +369,7 @@ router.get(
 
       return res.json({
         status: true,
+        message: "fetched",
         data: {
           requests_week_1,
           requests_week_2,
@@ -341,7 +386,7 @@ router.get(
 
 //# custom request health (dev)
 router.get(
-  "/dev/health",
+  "/dev/health/custom",
   canAccessRoute(QUYX_USER.DEV),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
     try {

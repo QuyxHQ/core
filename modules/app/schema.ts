@@ -4,7 +4,7 @@ export const registerAppSchema = z.object({
   body: z.strictObject({
     name: z.string(),
     description: z.string(),
-    allowedDomains: z.string().url().array().nullable(),
+    allowedDomains: z.string().array().nullable(),
     allowedBundleIDs: z.string().array().nullable(),
     blacklistedAddresses: z.string().array().nullable(),
     whitelistedAddresses: z.string().array().nullable(),
@@ -27,10 +27,10 @@ export const editAppSchema = z.object({
   body: z.strictObject({
     name: z.string(),
     description: z.string(),
-    allowedDomains: z.string().url().array().nullable(),
+    allowedDomains: z.string().array().nullable(),
     allowedBundleIDs: z.string().array().nullable(),
-    whitelistedAddress: z.string().array().nullable(),
-    blacklistedAddress: z.string().array().nullable(),
+    blacklistedAddresses: z.string().array().nullable(),
+    whitelistedAddresses: z.string().array().nullable(),
   }),
   params: z.object({
     id: z.string().regex(/^[0-9a-fA-F]{24}$/),
