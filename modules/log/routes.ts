@@ -39,48 +39,48 @@ router.get(
           status: QUYX_LOG_STATUS.SUCCESSFUL,
           dev: identifier,
           app,
-          createdAt: { $gte: hour1 },
+          date: { $gte: hour1 },
         }),
         countLog({
           status: QUYX_LOG_STATUS.SUCCESSFUL,
           dev: identifier,
           app,
-          createdAt: { $gte: hour24 },
+          date: { $gte: hour24 },
         }),
         countLog({
           status: QUYX_LOG_STATUS.FAILED,
           dev: identifier,
           app,
-          createdAt: { $gte: hour1 },
+          date: { $gte: hour1 },
         }),
         countLog({
           status: QUYX_LOG_STATUS.FAILED,
           dev: identifier,
           app,
-          createdAt: { $gte: hour24 },
+          date: { $gte: hour24 },
         }),
         countLog({
           dev: identifier,
           app,
-          createdAt: { $gte: hour24 },
+          date: { $gte: hour24 },
         }),
         countLog({ dev: identifier, app }),
         avgLogs({
           dev: identifier,
           app,
-          createdAt: { $gte: min5 },
+          date: { $gte: min5 },
         }),
         countSDKUsers({ app, isActive: true }),
       ]);
 
       const successRate_hour1 =
         success_hour1 + failed_hour1 == 0
-          ? 0
+          ? 2
           : (success_hour1 / (success_hour1 + failed_hour1)) * 100;
 
       const successRate_hour24 =
-        success_hour1 + failed_hour1 == 0
-          ? 0
+        success_hour24 + failed_hour24 == 0
+          ? 2
           : (success_hour24 / (success_hour24 + failed_hour24)) * 100;
 
       return res.status(200).json({
@@ -247,14 +247,14 @@ router.get(
         status: QUYX_LOG_STATUS.SUCCESSFUL,
         app,
         dev: identifier,
-        createdAt: { $gte: dateUTC(from), $lt: dateUTC(to) },
+        date: { $gte: dateUTC(from), $lt: dateUTC(to) },
       });
 
       const failed_requests = await countLog({
         status: QUYX_LOG_STATUS.FAILED,
         app,
         dev: identifier,
-        createdAt: { $gte: dateUTC(from), $lt: dateUTC(to) },
+        date: { $gte: dateUTC(from), $lt: dateUTC(to) },
       });
 
       return res.json({
@@ -318,13 +318,13 @@ router.get(
       const success_24 = await countLog({
         status: QUYX_LOG_STATUS.SUCCESSFUL,
         dev: identifier,
-        createdAt: { $gte: hour24 },
+        date: { $gte: hour24 },
       });
 
       const failed_24 = await countLog({
         status: QUYX_LOG_STATUS.FAILED,
         dev: identifier,
-        createdAt: { $gte: hour24 },
+        date: { $gte: hour24 },
       });
 
       return res.json({
@@ -360,12 +360,12 @@ router.get(
 
       const requests_week_1 = await countLog({
         dev: identifier,
-        createdAt: { $gte: week1 },
+        date: { $gte: week1 },
       });
 
       const requests_week_2 = await countLog({
         dev: identifier,
-        createdAt: { $gte: week2, $lt: week1 },
+        date: { $gte: week2, $lt: week1 },
       });
 
       return res.json({
@@ -397,13 +397,13 @@ router.get(
       const successful_requests = await countLog({
         status: QUYX_LOG_STATUS.SUCCESSFUL,
         dev: identifier,
-        createdAt: { $gte: dateUTC(from), $lt: dateUTC(to) },
+        date: { $gte: dateUTC(from), $lt: dateUTC(to) },
       });
 
       const failed_requests = await countLog({
         status: QUYX_LOG_STATUS.FAILED,
         dev: identifier,
-        createdAt: { $gte: dateUTC(from), $lt: dateUTC(to) },
+        date: { $gte: dateUTC(from), $lt: dateUTC(to) },
       });
 
       return res.json({

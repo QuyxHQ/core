@@ -47,6 +47,7 @@ async function _log({
     route,
     status,
     log,
+    date: dateUTC(),
   });
 }
 
@@ -56,7 +57,7 @@ router.post(
   validate(SIWESchema),
   hasAccessToSDK,
   async function (req: Request<{}, {}, SIWE["body"]>, res: Response<{}, QuyxLocals>) {
-    const { app } = res.locals.meta;
+    const { app } = res.locals;
     const start = dateUTC().getTime();
 
     try {
@@ -239,7 +240,8 @@ router.get(
   hasAccessToSDK,
   canAccessRoute(QUYX_USER.SDK_USER),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
-    const { app, identifier } = res.locals.meta;
+    const { app } = res.locals;
+    const { identifier } = res.locals.meta;
     const start = dateUTC().getTime();
 
     try {
@@ -312,7 +314,8 @@ router.get(
   hasAccessToSDK,
   canAccessRoute(QUYX_USER.SDK_USER),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
-    const { app, identifier } = res.locals.meta;
+    const { app } = res.locals;
+    const { identifier } = res.locals.meta;
     const start = dateUTC().getTime();
 
     try {
@@ -420,7 +423,8 @@ router.put(
   canAccessRoute(QUYX_USER.SDK_USER),
   validate(changeCardSDKSchema),
   async function (req: Request<ChangeCardSDK["params"]>, res: Response<{}, QuyxLocals>) {
-    const { app, identifier } = res.locals.meta;
+    const { app } = res.locals;
+    const { identifier } = res.locals.meta;
     const start = dateUTC().getTime();
     const { id } = req.params;
 
@@ -543,7 +547,8 @@ router.delete(
   hasAccessToSDK,
   canAccessRoute(QUYX_USER.SDK_USER),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
-    const { app, identifier } = res.locals.meta;
+    const { app } = res.locals;
+    const { identifier } = res.locals.meta;
     const start = dateUTC().getTime();
 
     try {
@@ -592,7 +597,7 @@ router.get(
   "/users/all",
   hasAccessToSDK,
   async function (req: Request, res: Response<{}, QuyxLocals>) {
-    const { app } = res.locals.meta;
+    const { app } = res.locals;
     const start = dateUTC().getTime();
 
     try {
@@ -686,7 +691,7 @@ router.get(
   "/user/single/:address",
   hasAccessToSDK,
   async function (req: Request, res: Response<{}, QuyxLocals>) {
-    const { app } = res.locals.meta;
+    const { app } = res.locals;
     const { address } = req.params;
     const start = dateUTC().getTime();
 

@@ -12,17 +12,11 @@ type Props = (typeof QUYX_USERS)[number];
 export function canAccessRoute(role: Props | Props[]) {
   return async function (req: Request, res: Response<{}, QuyxLocals>, next: NextFunction) {
     const start = dateUTC().getTime();
-    if (!res.locals.meta) {
-      return res.status(401).json({
-        status: false,
-        message: "not authorized to acess this route",
-      });
-    }
 
-    if (typeof role === "string" && res.locals.meta.role !== role) {
-      if (res.locals.meta.app) {
+    if (!res.locals.meta) {
+      if (res.locals.app) {
         //# log the unauthorized error
-        const app = res.locals.meta.app;
+        const { app } = res.locals;
 
         await addLog({
           app: app._id,
@@ -36,6 +30,34 @@ export function canAccessRoute(role: Props | Props[]) {
             query: req.query,
           }),
           responseTime: dateUTC().getTime() - start,
+          date: dateUTC(),
+        });
+      }
+
+      return res.status(401).json({
+        status: false,
+        message: "not authorized to acess this route",
+      });
+    }
+
+    if (typeof role === "string" && res.locals.meta.role !== role) {
+      if (res.locals.app) {
+        //# log the unauthorized error
+        const { app } = res.locals;
+
+        await addLog({
+          app: app._id,
+          dev: app.owner,
+          status: QUYX_LOG_STATUS.FAILED,
+          route: "*",
+          log: JSON.stringify({
+            message: "not authorized to acess this route",
+            body: req.body,
+            params: req.params,
+            query: req.query,
+          }),
+          responseTime: dateUTC().getTime() - start,
+          date: dateUTC(),
         });
       }
 
@@ -46,9 +68,9 @@ export function canAccessRoute(role: Props | Props[]) {
     }
 
     if (Array.isArray(role) && !role.includes(res.locals.meta.role)) {
-      if (res.locals.meta.app) {
+      if (res.locals.app) {
         //# log the unauthorized error
-        const app = res.locals.meta.app;
+        const { app } = res.locals;
 
         await addLog({
           app: app._id,
@@ -62,6 +84,7 @@ export function canAccessRoute(role: Props | Props[]) {
             query: req.query,
           }),
           responseTime: dateUTC().getTime() - start,
+          date: dateUTC(),
         });
       }
 
@@ -77,64 +100,74 @@ export async function hasAccessToSDK(
   res: Response<{}, QuyxLocals>,
   next: NextFunction
 ) {
-  const apiKey = get(req, "headers.quyx-api-key") ?? null;
-  if (apiKey) {
-    //# check that apiKey is valid...(xxxxxx)
-    const app = await findApp({ apiKey });
+  try {
+    const apiKey = get(req, "headers.quyx-api-key") ?? null;
+    if (apiKey) {
+      //# check that apiKey is valid...(xxxxxx)
+      const app = await findApp({ apiKey });
+      if (!app) {
+        return res.status(401).json({
+          status: false,
+          message: "invalid apiKey passed",
+        });
+      }
+
+      res.locals.app = app;
+      return next();
+    }
+
+    //# no apiKey? check for clientID then.....
+    const clientID = get(req, "headers.quyx-client-id") ?? null;
+    if (!clientID) {
+      return res.status(401).json({
+        status: false,
+        message: "apiKey/clientID is missing",
+      });
+    }
+
+    const app = await findApp({ clientID });
     if (!app) {
       return res.status(401).json({
         status: false,
-        message: "invalid apiKey passed",
+        message: "invalid clientID passed",
       });
     }
 
-    res.locals.meta.app = app;
+    if (app.allowedBundleIDs) {
+      const bundleID = (get(req, "headers.bundle-id") as string) ?? null;
+      if (!bundleID || !app.allowedBundleIDs.includes(bundleID)) {
+        return res.status(401).json({
+          status: false,
+          message: "access blocked from origin",
+        });
+      }
+    }
+
+    if (app.allowedDomains) {
+      const origin = get(req, "headers.origin") ?? get(req, "headers.referer") ?? null;
+      const domain = origin ? new URL(origin).hostname : null;
+      if (
+        !domain ||
+        (!app.allowedDomains.includes(domain) &&
+          domain != new URL(config.DEV_BASE_URL).hostname)
+      ) {
+        return res.status(401).json({
+          status: false,
+          message: "access blocked from origin",
+        });
+      }
+    }
+
+    res.locals.app = app;
     return next();
-  }
+  } catch (e: any) {
+    console.log(e);
 
-  //# no apiKey? check for clientID then.....
-  const clientID = get(req, "headers.quyx-client-id") ?? null;
-  if (!clientID) {
-    return res.status(401).json({
+    return res.status(500).json({
       status: false,
-      message: "apiKey/clientID is missing",
+      message: e.message,
     });
   }
-
-  const app = await findApp({ clientID });
-  if (!app) {
-    return res.status(401).json({
-      status: false,
-      message: "invalid apiKey passed",
-    });
-  }
-
-  if (app.allowedBundleIDs) {
-    const bundleID = (get(req, "headers.bundle-id") as string) ?? null;
-    if (!bundleID || !app.allowedBundleIDs.includes(bundleID)) {
-      return res.status(401).json({
-        status: false,
-        message: "access blocked from origin",
-      });
-    }
-  }
-
-  if (app.allowedDomains) {
-    const origin = get(req, "headers.origin") ?? get(req, "headers.referer") ?? null;
-    const domain = origin ? new URL(origin).hostname : null;
-    if (
-      !domain ||
-      (!app.allowedDomains.includes(domain) && domain != new URL(config.DEV_BASE_URL).hostname)
-    ) {
-      return res.status(401).json({
-        status: false,
-        message: "access blocked from origin",
-      });
-    }
-  }
-
-  res.locals.meta.app = app;
-  return next();
 }
 
 export function isFromMoralis(req: Request, res: Response, next: NextFunction) {

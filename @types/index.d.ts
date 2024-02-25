@@ -96,6 +96,7 @@ type QuyxLog = Base & {
   log: string | null;
   route: string;
   responseTime: number;
+  date: Date;
 };
 
 const QUYX_USERS = ["quyx_user", "quyx_staff", "quyx_dev", "quyx_sdk_user"] as const;
@@ -134,8 +135,8 @@ type QuyxLocals = {
     session: string;
     role: (typeof QUYX_USERS)[number];
     identifier: string;
-    app?: QuyxApp & { _id: string };
   };
+  app: QuyxApp & { _id: string };
 };
 
 type Base = { createdAt?: Date; updatedAt?: Date };
