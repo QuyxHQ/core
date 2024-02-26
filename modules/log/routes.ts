@@ -76,12 +76,12 @@ router.get(
       const successRate_hour1 =
         success_hour1 + failed_hour1 == 0
           ? 0
-          : (success_hour1 / (success_hour1 + failed_hour1)) * 100;
+          : ((success_hour1 / (success_hour1 + failed_hour1)) * 100).toFixed(1);
 
       const successRate_hour24 =
         success_hour24 + failed_hour24 == 0
           ? 0
-          : (success_hour24 / (success_hour24 + failed_hour24)) * 100;
+          : ((success_hour24 / (success_hour24 + failed_hour24)) * 100).toFixed(1);
 
       return res.status(200).json({
         status: true,
