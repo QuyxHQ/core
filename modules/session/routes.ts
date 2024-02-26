@@ -2,21 +2,24 @@ import express, { Request, Response } from "express";
 import { canAccessRoute } from "../../shared/utils/validators";
 import { QUYX_USER } from "../../shared/utils/constants";
 import { findSession, findSessions, updateSession } from "./service";
-import { v4 as uuidv4 } from "uuid";
 import { dateUTC } from "../../shared/utils/helpers";
+import { addNonce } from "../nonce/service";
+import { generateNonce } from "siwe";
 
 const router = express.Router();
 
-router.get("/nonce", async function (req: Request, res: Response) {
+router.get("/nonce", async function (_: Request, res: Response) {
   try {
-    const nonce = uuidv4();
+    const nonce = generateNonce();
     const issuedAt = dateUTC().toISOString();
-    const expirationDate = dateUTC(dateUTC().getTime() + 5 * 60 * 1000).toISOString();
+    const expirationTime = dateUTC(dateUTC().getTime() + 5 * 60 * 1000).toISOString();
 
-    (req.session as any).nonce = nonce;
-    (req.session as any).issuedAt = issuedAt;
-    (req.session as any).expirationDate = expirationDate;
-    req.session.save();
+    //# adding nonce....
+    await addNonce({
+      nonce,
+      issuedAt,
+      expirationTime,
+    });
 
     return res.json({
       status: true,
@@ -24,7 +27,7 @@ router.get("/nonce", async function (req: Request, res: Response) {
       data: {
         nonce,
         issuedAt,
-        expirationDate,
+        expirationTime,
       },
     });
   } catch (e: any) {

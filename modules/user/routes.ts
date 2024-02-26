@@ -12,6 +12,7 @@ import { canAccessRoute } from "../../shared/utils/validators";
 import { omit } from "lodash";
 import { dateUTC, generateOTP, generateUsernameSuggestion } from "../../shared/utils/helpers";
 import { sendKYCMail } from "../../shared/utils/mailer";
+import { deleteNonce, findNonce } from "../nonce/service";
 
 const router = express.Router();
 
@@ -23,13 +24,32 @@ router.post(
     try {
       const { message, signature } = req.body;
 
-      if (message.nonce != (req.session as any).nonce) {
-        req.session.destroy(() => {});
+      const nonce = await findNonce({ nonce: message.nonce });
+      if (!nonce) {
         return res.status(422).json({
           status: false,
           message: "invalid nonce set",
         });
       }
+
+      if (dateUTC(nonce.expirationTime).getTime() < dateUTC().getTime()) {
+        return res.status(400).json({
+          status: false,
+          message: "nonce is expired! request a new one",
+        });
+      }
+
+      if (message.nonce != nonce.nonce) {
+        await deleteNonce({ _id: nonce._id });
+
+        return res.status(422).json({
+          status: false,
+          message: "invalid nonce set",
+        });
+      }
+
+      //# immediately trash away the nonce
+      await deleteNonce({ _id: nonce._id });
 
       const messageSIWE = new SiweMessage(message);
       const resp = await messageSIWE.verify({

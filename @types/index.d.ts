@@ -137,6 +137,7 @@ type QuyxLocals = {
     identifier: string;
   };
   app: QuyxApp & { _id: string };
+  nonce?: string;
 };
 
 type Base = { createdAt?: Date; updatedAt?: Date };
@@ -178,4 +179,10 @@ type MoralisStreamResponse = {
 
 type QuyxAiWaitlist = Base & {
   dev: string;
+};
+
+type QuyxNonce = Base & {
+  nonce: string;
+  issuedAt: string;
+  expirationTime: string;
 };

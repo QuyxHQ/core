@@ -8,7 +8,6 @@ import helmet from "helmet";
 import config from "./config";
 import log from "./log";
 import info from "../../contract/info.json";
-import session from "express-session";
 
 function createServer() {
   const app = express();
@@ -60,18 +59,6 @@ function createServer() {
     next();
   });
 
-  const sesssionObj: any = {
-    secret: config.EXPRESS_SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-  };
-
-  if (config.IS_PROD) {
-    app.set("trust proxy", 1);
-    sesssionObj.cookie.secure = true;
-  }
-
-  app.use(session(sesssionObj));
   app.use(deserializeUser); //to deserialize the user..
 
   app.get("/healthz", (_, res: Response) => res.sendStatus(200));

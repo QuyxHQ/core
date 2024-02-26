@@ -21,6 +21,7 @@ import { findUser } from "../user/service";
 import { ChangeCardSDK, GetSDKUsers, changeCardSDKSchema, getSDKUsersSchema } from "./schema";
 import { isAddress } from "ethers/lib/utils";
 import { dateUTC } from "../../shared/utils/helpers";
+import { deleteNonce, findNonce } from "../nonce/service";
 
 const router = express.Router();
 
@@ -63,8 +64,55 @@ router.post(
     try {
       const { message, signature } = req.body;
 
-      if (message.nonce != (req.session as any).nonce) {
-        req.session.destroy(() => {});
+      const nonce = await findNonce({ nonce: message.nonce });
+      if (!nonce) {
+        const log = {
+          message: "invalid nonce set",
+          body: req.body,
+          params: req.params,
+          query: req.query,
+        };
+
+        await _log({
+          app: app!._id,
+          dev: app!.owner,
+          responseTime: dateUTC().getTime() - start,
+          route: "/login",
+          status: QUYX_LOG_STATUS.FAILED,
+          log: JSON.stringify(log),
+        });
+
+        return res.status(422).json({
+          status: false,
+          message: log.message,
+        });
+      }
+
+      if (dateUTC(nonce.expirationTime).getTime() < dateUTC().getTime()) {
+        const log = {
+          message: "nonce is expired! request a new one",
+          body: req.body,
+          params: req.params,
+          query: req.query,
+        };
+
+        await _log({
+          app: app!._id,
+          dev: app!.owner,
+          responseTime: dateUTC().getTime() - start,
+          route: "/login",
+          status: QUYX_LOG_STATUS.FAILED,
+          log: JSON.stringify(log),
+        });
+
+        return res.status(400).json({
+          status: false,
+          message: log.message,
+        });
+      }
+
+      if (message.nonce != nonce.nonce) {
+        await deleteNonce({ _id: nonce._id });
 
         const log = {
           message: "invalid nonce set",
@@ -87,6 +135,9 @@ router.post(
           message: log.message,
         });
       }
+
+      //# immediately trash away the nonce
+      await deleteNonce({ _id: nonce._id });
 
       const messageSIWE = new SiweMessage(message);
       const resp = await messageSIWE.verify({
@@ -210,8 +261,9 @@ router.post(
         },
       });
     } catch (e: any) {
+      console.log(e);
       const log = {
-        message: e.message ?? "unable to complete request",
+        message: e.message ?? e.type ?? "unable to complete request",
         body: req.body,
         params: req.params,
         query: req.query,
