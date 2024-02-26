@@ -53,12 +53,14 @@ export async function findLogs(
 }
 
 export async function avgLogs(filter: mongoose.FilterQuery<LogDoc>): Promise<number> {
-  const avg_response_time = await Log.aggregate([
-    { $match: filter },
-    { $group: { _id: null, avgResponseTime: { $avg: "$responseTime" } } },
-  ]);
+  try {
+    const resp = await Log.find(filter);
+    if (resp.length == 0) return 0;
+    let totalResponseTime = 0;
 
-  console.log(avg_response_time);
-
-  return avg_response_time.length > 0 ? avg_response_time[0].avgResponseTime : 0;
+    for (let item of resp) totalResponseTime += item.responseTime;
+    return totalResponseTime / resp.length;
+  } catch (e: any) {
+    throw new Error(e);
+  }
 }

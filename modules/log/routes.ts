@@ -393,17 +393,18 @@ router.get(
     try {
       const { identifier } = res.locals.meta;
       const { from, to } = req.query as any;
+      if (!from || !to) return res.sendStatus(400);
 
       const successful_requests = await countLog({
         status: QUYX_LOG_STATUS.SUCCESSFUL,
         dev: identifier,
-        date: { $gte: dateUTC(from), $lt: dateUTC(to) },
+        date: { $gte: dateUTC(from), $lte: dateUTC(to) },
       });
 
       const failed_requests = await countLog({
         status: QUYX_LOG_STATUS.FAILED,
         dev: identifier,
-        date: { $gte: dateUTC(from), $lt: dateUTC(to) },
+        date: { $gte: dateUTC(from), $lte: dateUTC(to) },
       });
 
       return res.json({
