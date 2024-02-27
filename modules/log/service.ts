@@ -42,6 +42,7 @@ export async function findLogs(
 ) {
   try {
     const logs = await Log.find(filter)
+      .populate({ path: "app", select: "name isActive" })
       .limit(limit)
       .skip((page - 1) * limit)
       .lean();

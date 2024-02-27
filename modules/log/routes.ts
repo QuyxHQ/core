@@ -108,6 +108,43 @@ router.get(
   }
 );
 
+//# all logs for a dev
+router.get(
+  "/",
+  canAccessRoute(QUYX_USER.DEV),
+  async function (req: Request, res: Response<{}, QuyxLocals>) {
+    try {
+      const { identifier } = res.locals.meta;
+
+      const { limit = "10", page = "1" } = req.query as any;
+      if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
+
+      const totalLogs = await countLog({ dev: identifier });
+      const logs = await findLogs(
+        { dev: identifier },
+        { limit: parseInt(limit), page: parseInt(page) }
+      );
+
+      return res.json({
+        status: true,
+        message: "fetched logs",
+        data: logs,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          skip: (parseInt(page) - 1) * parseInt(limit),
+          total: totalLogs,
+        },
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
+
 //# all logs for an app
 router.get(
   "/app/status/all/:id",
@@ -352,28 +389,59 @@ router.get(
     try {
       const { identifier } = res.locals.meta;
 
-      const week1 = dateUTC();
-      week1.setHours(week1.getHours() - 24 * 7);
+      const getCurrentWeekDates = (offset: number) => {
+        const weekDates = [];
 
-      const week2 = dateUTC();
-      week2.setHours(week1.getHours() - 24 * 7);
+        for (let i = 0; i < 7; i++) {
+          const date = new Date();
+          date.setHours(date.getHours() - (offset + i * 24));
+          weekDates.push(date);
+        }
 
-      const requests_week_1 = await countLog({
-        dev: identifier,
-        date: { $gte: week1 },
-      });
+        return weekDates;
+      };
 
-      const requests_week_2 = await countLog({
-        dev: identifier,
-        date: { $gte: week2, $lt: week1 },
-      });
+      const countLogs = async (startDate: Date, endDate: Date) => {
+        return await countLog({
+          dev: identifier,
+          date: { $gte: startDate, $lt: endDate },
+        });
+      };
+
+      const week1Dates = getCurrentWeekDates(0);
+      const week2Dates = getCurrentWeekDates(7);
+
+      const data: any = { week1: {}, week2: {} };
+      let totalWeek1 = 0;
+      let totalWeek2 = 0;
+
+      for (let i = 0; i < 7; i++) {
+        const dayStart = week1Dates[i];
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+
+        const count = await countLogs(dayStart, dayEnd);
+        data.week1[`day${i + 1}`] = count;
+        totalWeek1 += count;
+      }
+
+      for (let i = 0; i < 7; i++) {
+        const dayStart = week2Dates[i];
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+
+        const count = await countLogs(dayStart, dayEnd);
+        data.week2[`day${i + 1}`] = count;
+        totalWeek2 += count;
+      }
 
       return res.json({
         status: true,
         message: "fetched",
         data: {
-          requests_week_1,
-          requests_week_2,
+          ...data,
+          total_week_1: totalWeek1,
+          total_week_2: totalWeek2,
         },
       });
     } catch (e: any) {
