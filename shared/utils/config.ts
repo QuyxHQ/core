@@ -25,9 +25,9 @@ let {
 
 ACCESS_TOKEN_TTL = ACCESS_TOKEN_TTL || "5m";
 REFRESH_TOKEN_TTL = REFRESH_TOKEN_TTL || "1y";
-KYC_OTP_TTL = KYC_OTP_TTL || "86400";
-HASH_TTL = HASH_TTL || "86400";
-SUDO_TTL = SUDO_TTL || "300";
+KYC_OTP_TTL = KYC_OTP_TTL || "86400000"; // def: 24 hrs...in milliseconds
+HASH_TTL = HASH_TTL || "86400000"; // def: 24 hrs...in milliseconds
+SUDO_TTL = SUDO_TTL || "300000"; // def: 5 mins...in milliseconds
 SMTP_HOST = SMTP_HOST || "";
 SMTP_USERNAME = SMTP_USERNAME || "";
 SMTP_PASSWORD = SMTP_PASSWORD || "";
