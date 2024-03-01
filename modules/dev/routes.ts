@@ -88,7 +88,7 @@ router.post(
         status: true,
         message: "account registered successfully",
         data: {
-          data: omit(resp, [
+          data: omit(resp.toJSON(), [
             "emailVerificationOTP",
             "emailVerificationOTPExpiry",
             "forgetPasswordHash",
@@ -173,7 +173,7 @@ router.post(
         status: true,
         message: "account logged in successfully",
         data: {
-          data: omit(dev, [
+          data: omit(dev.toJSON(), [
             "emailVerificationOTP",
             "emailVerificationOTPExpiry",
             "forgetPasswordHash",
@@ -495,7 +495,7 @@ router.get(
       return res.json({
         status: true,
         message: "hash is valid",
-        data: omit(dev, [
+        data: omit(dev.toJSON(), [
           "emailVerificationOTP",
           "emailVerificationOTPExpiry",
           "forgetPasswordHash",

@@ -43,7 +43,7 @@ router.post(
       return res.status(201).json({
         status: true,
         message: "card saved successfully!",
-        data: omit(bookmark, ["_id"]),
+        data: omit(bookmark.toJSON(), ["_id"]),
       });
     } catch (e: any) {
       return res.status(500).json({

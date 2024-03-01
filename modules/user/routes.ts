@@ -122,7 +122,7 @@ router.get(
       return res.json({
         status: true,
         message: "Fetched",
-        data: omit(user, ["emailVerificationCode", "emailVerificationCodeExpiry"]),
+        data: omit(user.toJSON(), ["emailVerificationCode", "emailVerificationCodeExpiry"]),
       });
     } catch (e: any) {
       return res.status(500).json({
