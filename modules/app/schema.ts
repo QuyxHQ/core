@@ -3,7 +3,9 @@ import { z } from "zod";
 export const registerAppSchema = z.object({
   body: z.strictObject({
     name: z.string(),
+    url: z.string().url(),
     description: z.string(),
+    webhook: z.string().url().nullable(),
     allowedDomains: z.string().array().nullable(),
     allowedBundleIDs: z.string().array().nullable(),
     blacklistedAddresses: z.string().array().nullable(),
@@ -26,7 +28,9 @@ export const getAppSchema = z.object({
 export const editAppSchema = z.object({
   body: z.strictObject({
     name: z.string(),
+    url: z.string().url(),
     description: z.string(),
+    webhook: z.string().url().nullable(),
     allowedDomains: z.string().array().nullable(),
     allowedBundleIDs: z.string().array().nullable(),
     blacklistedAddresses: z.string().array().nullable(),

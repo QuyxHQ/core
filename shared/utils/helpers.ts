@@ -34,17 +34,17 @@ export async function comparePasswords(password: string, passwordHash: string) {
 }
 
 export function dateUTC(date?: string | number | Date) {
-  let now = new Date();
-  if (date) now = new Date(date);
+  let dt = new Date();
+  if (date) dt = new Date(date);
 
   return new Date(
     Date.UTC(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      now.getMinutes(),
-      now.getSeconds()
+      dt.getFullYear(),
+      dt.getMonth(),
+      dt.getDate(),
+      dt.getHours(),
+      dt.getMinutes(),
+      dt.getSeconds()
     )
   );
 }

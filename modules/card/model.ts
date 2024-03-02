@@ -15,7 +15,7 @@ const cardSchema = new mongoose.Schema(
     },
     version: {
       type: Number,
-      default: null,
+      default: 0,
     },
     mintedBy: {
       type: mongoose.Schema.Types.ObjectId,

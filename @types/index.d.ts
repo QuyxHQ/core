@@ -56,7 +56,7 @@ type QuyxDev = Base & {
 type QuyxCard = Base & {
   owner: string;
   identifier: null | number;
-  version: null | number;
+  version: number;
   chainId: (typeof QUYX_NETWORKS)[number];
   mintedBy: string;
   tempToken: string;
@@ -116,6 +116,8 @@ type QuyxApp = Base & {
   owner: string;
   name: string;
   description: string;
+  webhook: string | null;
+  url: string;
   allowedDomains: string[] | null;
   allowedBundleIDs: string[] | null;
   blacklistedAddresses: string[] | null;
@@ -188,3 +190,9 @@ type QuyxNonce = Base & {
   issuedAt: string;
   expirationTime: string;
 };
+
+const QUYX_EVENTS = [
+  "event.card_deleted",
+  "event.card_updated",
+  "event.card_ownershiptransferred",
+] as const;

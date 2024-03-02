@@ -23,30 +23,22 @@ const appSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    url: {
+      type: String,
+      required: true,
+    },
     description: {
       type: String,
       required: true,
     },
-    allowedDomains: [
-      {
-        type: String,
-      },
-    ],
-    allowedBundleIDs: [
-      {
-        type: String,
-      },
-    ],
-    blacklistedAddresses: [
-      {
-        type: String,
-      },
-    ],
-    whitelistedAddresses: [
-      {
-        type: String,
-      },
-    ],
+    webhook: {
+      type: String,
+      default: null,
+    },
+    allowedDomains: [{ type: String }],
+    allowedBundleIDs: [{ type: String }],
+    blacklistedAddresses: [{ type: String }],
+    whitelistedAddresses: [{ type: String }],
     isActive: {
       type: Boolean,
       default: true,

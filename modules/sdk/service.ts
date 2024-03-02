@@ -68,7 +68,11 @@ export async function updateManySDKUsers(
 
 export async function findSDKUser(filter: mongoose.FilterQuery<SdkDoc>) {
   try {
-    const result = await Sdk.findOne(filter).populate("card");
+    const result = await Sdk.findOne(filter).populate({
+      path: "card",
+      select:
+        "owner identifier version chainId username pfp bio description isForSale isFlagged",
+    });
     return result;
   } catch (e: any) {
     throw new Error(e);
@@ -90,7 +94,11 @@ export async function findSDKUsers(
 ) {
   try {
     const result = await Sdk.find(filter)
-      .populate("card")
+      .populate({
+        path: "card",
+        select:
+          "owner identifier version chainId username pfp bio description isForSale isFlagged",
+      })
       .limit(limit)
       .skip((page - 1) * limit)
       .lean();
@@ -105,6 +113,15 @@ export async function deleteSDKUser(filter: mongoose.FilterQuery<SdkDoc>) {
   try {
     const result = await Sdk.updateOne(filter, { isActive: false });
     return result.acknowledged && result.modifiedCount >= 1;
+  } catch (e: any) {
+    throw new Error(e);
+  }
+}
+
+export async function getAppsCardIsLinkedTo(cardId: string) {
+  try {
+    const apps = await Sdk.find({ card: cardId }).select("app");
+    return apps as unknown as { _id: string; app: string }[];
   } catch (e: any) {
     throw new Error(e);
   }
