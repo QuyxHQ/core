@@ -2,9 +2,39 @@ import crypto from "crypto";
 import { findApp } from "../../modules/app/service";
 import axios, { AxiosError } from "axios";
 import log from "./log";
+import { getAppsCardIsLinkedTo } from "../../modules/sdk/service";
+import { omit } from "lodash";
+import { dateUTC } from "./helpers";
+
+export async function sendWebhook(card: QuyxCard & { _id: string }) {
+  const apps = await getAppsCardIsLinkedTo(card._id);
+  if (apps.length > 0) {
+    for (let app of apps) {
+      await _sendWebhook({
+        payload: {
+          card: omit(card, [
+            "mintedBy",
+            "tempToken",
+            "isAuction",
+            "maxNumberOfBids",
+            "listingPrice",
+            "auctionEnds",
+            "tags",
+            "isDeleted",
+          ]),
+          date: dateUTC().toISOString(),
+        },
+        event: "event.card_updated",
+        app: app.app,
+      });
+    }
+  }
+
+  return;
+}
 
 type Props = { payload: Object; event: (typeof QUYX_EVENTS)[number]; app: string };
-export async function sendWebhook({ payload, event, app }: Props, retryCount = 0) {
+async function _sendWebhook({ payload, event, app }: Props, retryCount = 0) {
   const body = { event, data: payload };
 
   const appInfo = await findApp({ _id: app });
@@ -54,7 +84,7 @@ export async function sendWebhook({ payload, event, app }: Props, retryCount = 0
         const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff delay in milliseconds
         log.info(`Retrying - send to ${appInfo.webhook} in ${delay / 1000} seconds...`);
 
-        setTimeout(() => sendWebhook({ payload, event, app }, retryCount + 1), delay);
+        setTimeout(() => _sendWebhook({ payload, event, app }, retryCount + 1), delay);
       } else log.error(`Max attempt reached while sending webhook to ${appInfo.webhook}`);
     } else console.error(e);
   }

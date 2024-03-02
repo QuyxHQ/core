@@ -12,11 +12,9 @@ import {
 } from "./schema";
 import { countCards, createCard, findCard, findCards, updateCard } from "./service";
 import { v4 as uuidv4 } from "uuid";
-import { dateUTC, generateUsernameSuggestion } from "../../shared/utils/helpers";
+import { generateUsernameSuggestion } from "../../shared/utils/helpers";
 import { findUser, getBoughtCards, getSoldCards, increaseCardCount } from "../user/service";
-import { getAppsCardIsLinkedTo } from "../sdk/service";
 import { sendWebhook } from "../../shared/utils/webhook-sender";
-import { omit } from "lodash";
 
 const router = express.Router();
 
@@ -107,32 +105,11 @@ router.put(
 
       //# only call this if pfp, username or bio changes
       if (
-        card.pfp !== req.body.pfp ||
-        card.username !== req.body.username ||
-        card.bio !== req.body.bio
+        card.pfp != req.body.pfp ||
+        card.username != req.body.username ||
+        card.bio != req.body.bio
       ) {
-        const apps = await getAppsCardIsLinkedTo(card._id);
-        if (apps.length > 0) {
-          for (let app of apps) {
-            await sendWebhook({
-              payload: {
-                card: omit(card.toJSON(), [
-                  "mintedBy",
-                  "tempToken",
-                  "isAuction",
-                  "maxNumberOfBids",
-                  "listingPrice",
-                  "auctionEnds",
-                  "tags",
-                  "isDeleted",
-                ]),
-                date: dateUTC().toISOString(),
-              },
-              event: "event.card_updated",
-              app: app.app,
-            });
-          }
-        }
+        await sendWebhook(card.toJSON());
       }
 
       return res.status(201).json({

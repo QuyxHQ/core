@@ -13,6 +13,7 @@ import { omit } from "lodash";
 import { dateUTC, generateOTP, generateUsernameSuggestion } from "../../shared/utils/helpers";
 import { sendKYCMail } from "../../shared/utils/mailer";
 import { deleteNonce, findNonce } from "../nonce/service";
+import { countSDKUsers, getAppsUserIsConnectedTo } from "../sdk/service";
 
 const router = express.Router();
 
@@ -354,5 +355,43 @@ router.get("/search", async function (req: Request, res: Response) {
     });
   }
 });
+
+//# route to get all apps they've apps to
+router.get(
+  "/apps-connected",
+  canAccessRoute(QUYX_USER.USER),
+  async function (req: Request, res: Response<{}, QuyxLocals>) {
+    try {
+      const { identifier } = res.locals.meta;
+
+      const { limit = "10", page = "1" } = req.query as any;
+      if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
+
+      const user = await findUser({ _id: identifier });
+      const totalResults = await countSDKUsers({ address: user?.address });
+      const result = await getAppsUserIsConnectedTo(user?.address!, {
+        limit: parseInt(limit),
+        page: parseInt(page),
+      });
+
+      return res.json({
+        status: true,
+        message: "fetched",
+        data: result,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          skip: (parseInt(page) - 1) * parseInt(limit),
+          total: totalResults,
+        },
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
 
 export = router;

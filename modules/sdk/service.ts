@@ -126,3 +126,18 @@ export async function getAppsCardIsLinkedTo(cardId: string) {
     throw new Error(e);
   }
 }
+
+export async function getAppsUserIsConnectedTo(address: string, { limit, page }: FindProps) {
+  try {
+    const apps = await Sdk.find({ address })
+      .populate("card")
+      .populate({ path: "app", select: "name url description isActive" })
+      .limit(limit)
+      .skip((page - 1) * limit)
+      .lean();
+
+    return apps;
+  } catch (e: any) {
+    throw new Error(e);
+  }
+}

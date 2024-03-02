@@ -14,10 +14,9 @@ import {
 } from "../../shared/utils/mailer";
 import { findUser } from "../user/service";
 import { findReferral, updateManyReferral, updateReferral } from "../referral/service";
-import { getAppsCardIsLinkedTo, updateManySDKUsers } from "../sdk/service";
+import { updateManySDKUsers } from "../sdk/service";
 import { dateUTC } from "../../shared/utils/helpers";
 import { sendWebhook } from "../../shared/utils/webhook-sender";
-import { omit } from "lodash";
 
 const router = express.Router();
 
@@ -213,28 +212,7 @@ router.post(
             );
 
             //# send webhook
-            const apps = await getAppsCardIsLinkedTo(card._id);
-            if (apps.length > 0) {
-              for (let app of apps) {
-                await sendWebhook({
-                  payload: {
-                    card: omit(card.toJSON(), [
-                      "mintedBy",
-                      "tempToken",
-                      "isAuction",
-                      "maxNumberOfBids",
-                      "listingPrice",
-                      "auctionEnds",
-                      "tags",
-                      "isDeleted",
-                    ]),
-                    date: dateUTC().toISOString(),
-                  },
-                  event: "event.card_deleted",
-                  app: app.app,
-                });
-              }
-            }
+            await sendWebhook(card.toJSON());
           }
         }
 
@@ -306,28 +284,7 @@ router.post(
             await updateManyReferral({ card: card._id }, { isActive: false });
 
             //# send webhook
-            const apps = await getAppsCardIsLinkedTo(card._id);
-            if (apps.length > 0) {
-              for (let app of apps) {
-                await sendWebhook({
-                  payload: {
-                    card: omit(card.toJSON(), [
-                      "mintedBy",
-                      "tempToken",
-                      "isAuction",
-                      "maxNumberOfBids",
-                      "listingPrice",
-                      "auctionEnds",
-                      "tags",
-                      "isDeleted",
-                    ]),
-                    date: dateUTC().toISOString(),
-                  },
-                  event: "event.card_ownershiptransferred",
-                  app: app.app,
-                });
-              }
-            }
+            await sendWebhook(card.toJSON());
           }
         }
 
