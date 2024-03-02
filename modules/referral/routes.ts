@@ -120,7 +120,8 @@ router.get(
       const totalReferrals = await countReferrals({ user: identifier, isActive: true });
       const referrals = await findReferrals(
         { user: identifier, isActive: true },
-        { limit: parseInt(limit), page: parseInt(page) }
+        { limit: parseInt(limit), page: parseInt(page) },
+        { populateCard: true }
       );
 
       return res.json({

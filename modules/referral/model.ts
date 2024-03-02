@@ -20,6 +20,14 @@ const referralSchema = new mongoose.Schema(
     },
     isActive: {
       type: Boolean,
+      default: true,
+    },
+    bidsPlaced: {
+      type: Number,
+      default: 0,
+    },
+    won: {
+      type: Boolean,
       default: false,
     },
   },

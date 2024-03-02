@@ -10,9 +10,10 @@ import {
   sendCardBoughtMail,
   sendCardTransferredToMail,
   sendHighestBidPlacedMail,
+  sendReferralLinkUsed,
 } from "../../shared/utils/mailer";
 import { findUser } from "../user/service";
-import { updateManyReferral } from "../referral/service";
+import { findReferral, updateManyReferral, updateReferral } from "../referral/service";
 import { updateManySDKUsers } from "../sdk/service";
 import { dateUTC } from "../../shared/utils/helpers";
 
@@ -24,33 +25,24 @@ router.post(
   cronSenderIsValid,
   async function (_: Request, res: Response) {
     try {
-      const countOfOpenAuctionThatAreExpired = await countCards({
+      const filter = {
         isForSale: true,
         isDeleted: false,
         isAuction: true,
-        auctionEnds: {
-          $lte: dateUTC(),
-        },
-      });
+        auctionEnds: { $lte: dateUTC() },
+      };
 
-      const endedButActiveAuctions = await findCards(
-        {
-          isForSale: true,
-          isDeleted: false,
-          isAuction: true,
-          auctionEnds: {
-            $lte: dateUTC(),
-          },
-        },
-        { limit: countOfOpenAuctionThatAreExpired, page: 1 }
-      );
+      const countOfOpenAuctionThatAreExpired = await countCards(filter);
+      if (countOfOpenAuctionThatAreExpired > 0) {
+        const endedButActiveAuctions = await findCards(filter, {
+          limit: countOfOpenAuctionThatAreExpired,
+          page: 1,
+        });
 
-      if (endedButActiveAuctions.length > 0) {
         //# loop and end them.....
         for (let auctions of endedButActiveAuctions) {
-          //# helper fn to end it on chain
           const owner = await findUser({ _id: auctions.owner });
-          if (owner && owner.email) {
+          if (owner && owner.hasCompletedKYC && owner.email) {
             await sendAuctionEndedMail({
               cardId: auctions.identifier!,
               chainId: auctions.chainId as (typeof QUYX_NETWORKS)[number],
@@ -86,10 +78,11 @@ router.post(
         if (decodedLog.name == "BidPlaced") {
           const bidder = decodedLog.args.from;
           const cardId = parseInt(decodedLog.args.cardId.toString() as string);
-          // const referredBy = decodedLog.args.referredBy; - send a mail to referall later in future
+          const referredBy = decodedLog.args.referredBy;
           const amount = parseInt(ethers.utils.formatEther(decodedLog.args.amount));
           const timestamp = dateUTC(decodedLog.args.timestamp);
 
+          //# find card that is listed & also an auction
           const card = await findCard({
             identifier: cardId,
             isForSale: true,
@@ -97,7 +90,25 @@ router.post(
             isAuction: true,
           });
 
+          //# found?
           if (card) {
+            //# get the referral user
+            const referalUser = await findUser({ address: referredBy });
+            if (referalUser) {
+              const referralInfo = await findReferral({
+                user: referalUser._id,
+                card: card._id,
+              });
+
+              //# incremenet bids placed on the link
+              if (referralInfo) {
+                updateReferral(
+                  { _id: referralInfo._id },
+                  { bidsPlaced: referralInfo.bidsPlaced + 1 }
+                );
+              }
+            }
+
             const currentHighestBid = await findBid({
               card: card._id,
               version: card.version!,
@@ -129,6 +140,7 @@ router.post(
               const formerHighestBidder = await findUser({
                 address: currentHighestBid.bidder,
               });
+
               if (formerHighestBidder && formerHighestBidder.email) {
                 await sendHighestBidPlacedMail({
                   cardId,
@@ -173,9 +185,9 @@ router.post(
 
           const ownerDetails = await findUser({ address: owner });
           if (ownerDetails) {
-            //# add the card ID --
+            //# add the card ID
             await updateCard(
-              { tempToken, chainId, owner: ownerDetails._id },
+              { tempToken, chainId, owner: ownerDetails._id, isDeleted: false },
               { identifier: cardId }
             );
           }
@@ -183,9 +195,13 @@ router.post(
 
         if (decodedLog.name == "CardDeleted") {
           const cardId = parseInt(decodedLog.args.cardId.toString() as string);
+
           const card = await findCard({ identifier: cardId, chainId, isDeleted: false });
+          //# card exists?
           if (card) {
+            //# delete
             await deleteCard({ _id: card._id, isDeleted: false });
+            //# update sdk users set card stuff to null
             await updateManySDKUsers(
               {
                 card: card._id,
@@ -199,6 +215,7 @@ router.post(
         if (decodedLog.name == "CardSold") {
           const to = decodedLog.args.to;
           const cardId = parseInt(decodedLog.args.cardId.toString() as string);
+          const referredBy = decodedLog.args.referredBy;
 
           const card = await findCard({
             identifier: cardId,
@@ -232,6 +249,19 @@ router.post(
                 email: cardNewOwner.email,
                 username: cardNewOwner.username,
               });
+            }
+
+            const referalUser = await findUser({ address: referredBy });
+            if (referalUser) {
+              updateReferral({ user: referalUser._id, card: card._id }, { won: true });
+              if (referalUser.hasCompletedKYC && referalUser.email) {
+                await sendReferralLinkUsed({
+                  cardId,
+                  email: referalUser.email,
+                  chainId,
+                  username: referalUser.username,
+                });
+              }
             }
 
             await updateCard(

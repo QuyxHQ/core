@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import Referral, { ReferralDoc } from "./model";
 
-export async function createReferral(data: Omit<QuyxReferral, "isActive" | "clicks">) {
+export async function createReferral(
+  data: Omit<QuyxReferral, "isActive" | "clicks" | "won" | "bidsPlaced">
+) {
   try {
     const resp = await Referral.create(data);
     return resp;
@@ -60,7 +62,7 @@ export async function updateManyReferral(
 
 export async function findReferral(filter: mongoose.FilterQuery<ReferralDoc>) {
   try {
-    const result = await Referral.findOne(filter);
+    const result = await Referral.findOne(filter).populate("card owner");
     return result;
   } catch (e: any) {
     throw new Error(e);

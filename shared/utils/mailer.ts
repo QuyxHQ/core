@@ -139,3 +139,22 @@ export async function sendAuctionEndedMail(data: {
 
   await mailerSdk.send({ receiver: data.email, subject, html });
 }
+
+export async function sendReferralLinkUsed(data: {
+  email: string;
+  username: string;
+  chainId: (typeof QUYX_NETWORKS)[number];
+  cardId: number;
+}) {
+  const html = `<p>Hello ${data.username}, Good day from quyx</p>
+  <p>Good news! Your referall link has just been used to purchase a card on Quyx. Brief description found below, for more info check your Quyx's referral page</p>
+  <p><strong>Chain ID: </strong>${data.chainId}</p>
+  <p><strong>URL: </strong><a href="${config.CLIENT_BASE_URL}/card/${data.cardId}">view card</a></p>
+  <br/>
+  <br/>
+  <p>Best Regards,</p>
+  <p>Quyx Team ✨</p>`;
+  const subject = `Quyx <-> Yippe! Just got referral bonus`;
+
+  await mailerSdk.send({ receiver: data.email, subject, html });
+}

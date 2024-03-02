@@ -54,7 +54,7 @@ export async function updateCard(
 
 export async function findCard(filter: mongoose.FilterQuery<CardDoc>) {
   try {
-    const card = await Card.findOne(filter);
+    const card = await Card.findOne(filter).populate("owner");
     return card;
   } catch (e: any) {
     throw new Error(e);

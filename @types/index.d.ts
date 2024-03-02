@@ -128,6 +128,8 @@ type QuyxReferral = Base & {
   card: string;
   clicks: number;
   isActive: boolean;
+  won: boolean;
+  bidsPlaced: number;
 };
 
 type QuyxLocals = {
