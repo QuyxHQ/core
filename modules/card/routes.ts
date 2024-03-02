@@ -170,6 +170,50 @@ router.get(
   }
 );
 
+//# all user cards (owner)
+router.get(
+  "/user/owner/:chainId/:address",
+  validate(getUserCardSchema),
+  async function (req: Request<GetUserCard["params"]>, res: Response) {
+    try {
+      const { address, chainId } = req.params;
+      const { limit = "10", page = "1" } = req.query as any;
+      if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
+
+      const user = await findUser({ address });
+      if (!user) return res.sendStatus(404);
+
+      const totalCards = await countCards({
+        owner: user._id,
+        chainId,
+        isDeleted: false,
+      });
+
+      const cards = await findCards(
+        { owner: user._id, chainId, isDeleted: false },
+        { limit: parseInt(limit), page: parseInt(page) }
+      );
+
+      return res.json({
+        status: true,
+        message: "fetched cards",
+        data: cards,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          skip: (parseInt(page) - 1) * parseInt(limit),
+          total: totalCards,
+        },
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: true,
+        message: e.message,
+      });
+    }
+  }
+);
+
 //# all cards created by user (minted by user)
 router.get(
   "/user/created/:chainId/:address",

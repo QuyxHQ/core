@@ -1,12 +1,18 @@
 import express, { Request, Response } from "express";
-import { countCards, findCards, findDistinctCard, getTopTags } from "../card/service";
+import {
+  countCards,
+  findCards,
+  findDistinctCard,
+  getTopCardsSortedByVersion,
+  getTopTags,
+} from "../card/service";
 import { findTopSellers } from "../user/service";
 import { getTopCardsSortedByMostBids } from "../bid/service";
 
 const router = express.Router();
 
 //# all tags
-router.get("/tags/:chainId", async function (req: Request, res: Response) {
+router.get("/tags/all/:chainId", async function (req: Request, res: Response) {
   try {
     const { chainId } = req.params;
     if (!chainId || typeof chainId !== "string") return res.sendStatus(400);
@@ -26,7 +32,7 @@ router.get("/tags/:chainId", async function (req: Request, res: Response) {
 });
 
 //# all cards under a tag
-router.get("/tags/:chainId/:tag", async function (req: Request, res: Response) {
+router.get("/tags/cards/:chainId/:tag", async function (req: Request, res: Response) {
   try {
     const { tag, chainId } = req.params;
     if (!tag || typeof tag !== "string" || !chainId || typeof chainId !== "string") {
@@ -75,7 +81,7 @@ router.get("/tags/trending/:chainId", async function (req: Request, res: Respons
 
     const tags = await getTopTags(5);
     const limit = 12;
-    const data: Record<any, any> = {};
+    const data: Record<string, QuyxCard[]> = {};
 
     for (let tag of tags) {
       const cards = await findCards(
@@ -154,8 +160,31 @@ router.get("/top/sellers", async function (req: Request, res: Response) {
   }
 });
 
+//# by number of version
+router.get("/top/cards/version/:chainId", async function (req: Request, res: Response) {
+  try {
+    const { chainId } = req.params;
+    if (!chainId || typeof chainId !== "string") return res.sendStatus(400);
+
+    const { limit = "10" } = req.query as any;
+    if (isNaN(parseInt(limit))) return res.sendStatus(400);
+
+    const cards = await getTopCardsSortedByVersion(parseInt(limit), chainId);
+    return res.json({
+      status: true,
+      message: "fetched top cards",
+      data: cards,
+    });
+  } catch (e: any) {
+    return res.status(500).json({
+      status: false,
+      message: e.message,
+    });
+  }
+});
+
 //# by number of bids
-router.get("/top/cards/:chainId", async function (req: Request, res: Response) {
+router.get("/top/cards/bids/:chainId", async function (req: Request, res: Response) {
   try {
     const { chainId } = req.params;
     if (!chainId || typeof chainId !== "string") return res.sendStatus(400);

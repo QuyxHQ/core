@@ -11,6 +11,7 @@ import sdkRoutes from "../../modules/sdk/routes";
 import webhookRoutes from "../../modules/webhook/routes";
 import marketplaceRoutes from "../../modules/marketplace/routes";
 import aiWaitlistRoutes from "../../modules/ai-waitlist/routes";
+import referralRoutes from "../../modules/referral/routes";
 
 const router = express.Router();
 
@@ -32,5 +33,6 @@ router.use("/sdk", sdkRoutes);
 router.use("/webhook", webhookRoutes);
 router.use("/marketplace", marketplaceRoutes);
 router.use("/ai-waitlist", aiWaitlistRoutes);
+router.use("/referral", referralRoutes);
 
 export = router;

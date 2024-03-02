@@ -110,6 +110,18 @@ export async function deleteCard(filter: mongoose.FilterQuery<CardDoc>) {
   }
 }
 
+export async function getTopCardsSortedByVersion(limit: number, chainId: string) {
+  try {
+    const cards = await Card.find({ chainId })
+      .sort({ version: -1, createdAt: -1 })
+      .limit(limit);
+
+    return cards;
+  } catch (e: any) {
+    throw new Error(e);
+  }
+}
+
 export async function getTopTags(limit: number) {
   try {
     const hour24 = dateUTC();

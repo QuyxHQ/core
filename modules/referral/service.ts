@@ -62,7 +62,7 @@ export async function updateManyReferral(
 
 export async function findReferral(filter: mongoose.FilterQuery<ReferralDoc>) {
   try {
-    const result = await Referral.findOne(filter).populate("card owner");
+    const result = await Referral.findOne(filter).populate("card user");
     return result;
   } catch (e: any) {
     throw new Error(e);
@@ -86,7 +86,7 @@ export async function findReferrals(
   try {
     if (options) {
       const referrals = await Referral.find(filter)
-        .populate(options.populateCard ? "card" : "owner")
+        .populate(options.populateCard ? "card" : "user")
         .limit(limit)
         .skip((page - 1) * limit)
         .lean();

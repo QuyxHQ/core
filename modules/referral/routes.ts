@@ -106,6 +106,44 @@ router.put(
   }
 );
 
+//# gets all referral link of the logged in user
+router.get(
+  "/all",
+  canAccessRoute(QUYX_USER.USER),
+  async function (req: Request, res: Response<{}, QuyxLocals>) {
+    try {
+      const { limit = "10", page = "1" } = req.query as any;
+      if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
+
+      const { identifier } = res.locals.meta;
+
+      const totalReferrals = await countReferrals({ user: identifier });
+      const referrals = await findReferrals(
+        { user: identifier, isActive: true },
+        { limit: parseInt(limit), page: parseInt(page) },
+        { populateCard: true }
+      );
+
+      return res.json({
+        status: true,
+        message: "fetched referal links",
+        data: referrals,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          skip: (parseInt(page) - 1) * parseInt(limit),
+          total: totalReferrals,
+        },
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
+
 //# gets all active referral link of the logged in user
 router.get(
   "/active",
