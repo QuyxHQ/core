@@ -28,14 +28,14 @@ REFRESH_TOKEN_TTL = REFRESH_TOKEN_TTL || "1y";
 KYC_OTP_TTL = KYC_OTP_TTL || "86400000"; // def: 24 hrs...in milliseconds
 HASH_TTL = HASH_TTL || "86400000"; // def: 24 hrs...in milliseconds
 SUDO_TTL = SUDO_TTL || "300000"; // def: 5 mins...in milliseconds
-SMTP_HOST = SMTP_HOST || "";
-SMTP_USERNAME = SMTP_USERNAME || "";
-SMTP_PASSWORD = SMTP_PASSWORD || "";
-SMTP_PORT = SMTP_PORT || "";
+SMTP_HOST = SMTP_HOST || "xx";
+SMTP_USERNAME = SMTP_USERNAME || "xx";
+SMTP_PASSWORD = SMTP_PASSWORD || "xx";
+SMTP_PORT = SMTP_PORT || "xx";
 DEV_BASE_URL = DEV_BASE_URL || "http://localhost:5173";
 CLIENT_BASE_URL = CLIENT_BASE_URL || "http://localhost:5173";
-MORALIS_SECRET = MORALIS_SECRET || "";
-SENTRY_DSN = SENTRY_DSN || "";
+MORALIS_SECRET = MORALIS_SECRET || "xx";
+SENTRY_DSN = SENTRY_DSN || "xx";
 ENV = ENV || "test";
 
 const IS_PROD = ENV === "production";
