@@ -21,6 +21,8 @@ let {
   SENTRY_DSN,
   CRON_KEY,
   ENV,
+  IMAGE_UPLOAD_ENDPOINT,
+  IMAGE_UPLOAD_KEY,
 } = process.env;
 
 ACCESS_TOKEN_TTL = ACCESS_TOKEN_TTL || "5m";
@@ -37,6 +39,8 @@ CLIENT_BASE_URL = CLIENT_BASE_URL || "http://localhost:5173";
 MORALIS_SECRET = MORALIS_SECRET || "xx";
 SENTRY_DSN = SENTRY_DSN || "xx";
 ENV = ENV || "test";
+IMAGE_UPLOAD_ENDPOINT = IMAGE_UPLOAD_ENDPOINT || "";
+IMAGE_UPLOAD_KEY = IMAGE_UPLOAD_KEY || "";
 
 const IS_PROD = ENV === "production";
 
@@ -60,4 +64,6 @@ export default {
   CRON_KEY,
   ENV,
   IS_PROD,
+  IMAGE_UPLOAD_ENDPOINT,
+  IMAGE_UPLOAD_KEY,
 };
