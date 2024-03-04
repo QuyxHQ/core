@@ -284,6 +284,7 @@ router.post(
       await updateUser(
         { _id: identifier },
         {
+          hasCompletedKYC: true,
           emailVerificationCode: null,
           emailVerificationCodeExpiry: null,
         }

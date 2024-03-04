@@ -108,7 +108,7 @@ type QuyxSession = Base & {
   userAgent: string | null;
 };
 
-const QUYX_NETWORKS = ["5", "84531", "97"] as const;
+const QUYX_NETWORKS = ["97"] as const;
 
 type QuyxApp = Base & {
   apiKey: string;

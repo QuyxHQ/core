@@ -20,7 +20,7 @@ export const SIWESchema = z.object({
 
 export const editUserSchema = z.object({
   body: z.strictObject({
-    pfp: z.string().url(),
+    pfp: z.string().url().nullable(),
     username: z.string(),
     email: z.string().email(),
   }),

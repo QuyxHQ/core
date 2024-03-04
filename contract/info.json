@@ -1,26 +1,9 @@
 [
   {
-    "contractAddress": "0x...",
-    "chainId": "0x1",
-    "chainName": "Ethereum",
-    "symbol": "ETH",
-    "isTestnet": false,
-    "logo": "https://api.quyx.xyz/media/eth.svg",
-    "urls": {
-      "rpc": "",
-      "explorer": ""
-    }
-  },
-  {
-    "contractAddress": "0x...",
-    "chainId": "0x38",
-    "chainName": "BNB Smart Chain",
-    "symbol": "BNB",
-    "isTestnet": false,
-    "logo": "https://api.quyx.xyz/media/bnb.svg",
-    "urls": {
-      "rpc": "",
-      "explorer": ""
-    }
+    "contractAddress": "0xEa97722A3183586cF1fe6170ab05E0f97c5a438D",
+    "chainId": 97,
+    "chainName": "BNB Smart Chain Testnet",
+    "symbol": "tBNB",
+    "isTestnet": true
   }
 ]
