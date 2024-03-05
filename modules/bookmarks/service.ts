@@ -55,7 +55,7 @@ export async function findBookmarks({
     const filter = { $or: [{ user: param }, { card: param }] };
 
     const result = await Bookmark.find(filter)
-      .populate("card")
+      .populate({ path: "card", populate: { path: "owner" } })
       .limit(limit)
       .skip((page - 1) * limit)
       .lean(true);

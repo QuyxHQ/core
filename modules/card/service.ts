@@ -112,7 +112,8 @@ export async function deleteCard(filter: mongoose.FilterQuery<CardDoc>) {
 
 export async function getTopCardsSortedByVersion(limit: number, chainId: string) {
   try {
-    const cards = await Card.find({ chainId })
+    const cards = await Card.find({ chainId, isForSale: true, isDeleted: false })
+      .populate("owner")
       .sort({ version: -1, createdAt: -1 })
       .limit(limit);
 

@@ -24,13 +24,11 @@ export async function updateUser(
 
 export async function upsertUser(address: string, update: mongoose.UpdateQuery<QuyxUser>) {
   try {
-    const user = await User.findOneAndUpdate(
-      { address },
-      { $set: { ...update } },
-      { upsert: true, new: true }
-    );
+    const user = await User.findOne({ address });
+    if (user) return user;
 
-    return user;
+    const resp = await User.create(update);
+    return resp;
   } catch (e: any) {
     if (e && e instanceof mongoose.Error.ValidationError) {
       for (let field in e.errors) {
@@ -152,7 +150,8 @@ export async function addSoldCards(
 }
 
 export async function getBoughtCards(
-  filter: mongoose.FilterQuery<CardDoc> & { chainId: string },
+  filter: mongoose.FilterQuery<CardDoc>,
+  chainId: string,
   { limit, page }: FindProps
 ) {
   try {
@@ -167,7 +166,7 @@ export async function getBoughtCards(
     });
 
     if (!user) throw new Error("invalid filter props, user not found");
-    const result = user.boughtCards.find((item) => item.chainId === filter.chainId);
+    const result = user.boughtCards.find((item) => item.chainId === chainId);
     if (!result) return [];
 
     return result.cards as unknown as QuyxCard[];
@@ -177,7 +176,8 @@ export async function getBoughtCards(
 }
 
 export async function getSoldCards(
-  filter: mongoose.FilterQuery<CardDoc> & { chainId: string },
+  filter: mongoose.FilterQuery<CardDoc>,
+  chainId: string,
   { limit, page }: FindProps
 ) {
   try {
@@ -192,7 +192,7 @@ export async function getSoldCards(
     });
 
     if (!user) throw new Error("invalid filter props, user not found");
-    const result = user.soldCards.find((item) => item.chainId === filter.chainId);
+    const result = user.soldCards.find((item) => item.chainId === chainId);
     if (!result) return [];
 
     return result.cards as unknown as QuyxCard[];

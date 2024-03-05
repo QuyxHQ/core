@@ -270,10 +270,10 @@ router.get(
       const user = await findUser({ address });
       if (!user) return res.sendStatus(404);
 
-      const cards = await getSoldCards(
-        { _id: user._id, chainId },
-        { limit: parseInt(limit), page: parseInt(page) }
-      );
+      const cards = await getSoldCards({ _id: user._id }, chainId, {
+        limit: parseInt(limit),
+        page: parseInt(page),
+      });
 
       return res.json({
         status: true,
@@ -283,7 +283,7 @@ router.get(
           limit: parseInt(limit),
           page: parseInt(page),
           skip: (parseInt(page) - 1) * parseInt(limit),
-          total: user.soldCards[chainId].cards.length,
+          total: user.soldCards[chainId]?.cards.length ?? 0,
         },
       });
     } catch (e: any) {
@@ -309,10 +309,10 @@ router.get(
       const user = await findUser({ address });
       if (!user) return res.sendStatus(404);
 
-      const cards = await getBoughtCards(
-        { _id: user._id, chainId },
-        { limit: parseInt(limit), page: parseInt(page) }
-      );
+      const cards = await getBoughtCards({ _id: user._id }, chainId, {
+        limit: parseInt(limit),
+        page: parseInt(page),
+      });
 
       return res.json({
         status: true,
@@ -322,7 +322,7 @@ router.get(
           limit: parseInt(limit),
           page: parseInt(page),
           skip: (parseInt(page) - 1) * parseInt(limit),
-          total: user.boughtCards[chainId].cards.length,
+          total: user.boughtCards[chainId]?.cards.length ?? 0,
         },
       });
     } catch (e: any) {
