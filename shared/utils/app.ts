@@ -26,8 +26,8 @@ function createServer() {
   app.use(Sentry.Handlers.requestHandler());
   app.use(Sentry.Handlers.tracingHandler());
 
-  app.use(express.urlencoded({ extended: true }));
-  app.use(express.json());
+  app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+  app.use(express.json({ limit: "20mb" }));
 
   app.use(helmet());
 

@@ -22,10 +22,7 @@ export async function updateUser(
   }
 }
 
-export async function upsertUser(
-  address: string,
-  update: mongoose.UpdateQuery<QuyxUser>
-) {
+export async function upsertUser(address: string, update: mongoose.UpdateQuery<QuyxUser>) {
   try {
     const user = await User.findOneAndUpdate(
       { address },
@@ -100,16 +97,17 @@ export async function findTopSellers(limit = 10) {
 }
 
 export async function increaseCardCount(
-  filter: mongoose.FilterQuery<CardDoc> & { chainId: string },
+  filter: mongoose.FilterQuery<CardDoc>,
+  chainId: string,
   field: "cardsCreatedCount" | "cardsSoldCount" | "cardsBoughtCount"
 ) {
   try {
     const user = await User.findOne(filter);
     if (!user) throw new Error("invalid filter props, user not found");
 
-    const index = user[field].findIndex((item) => item.chainId === filter.chainId);
+    const index = user[field].findIndex((item) => item.chainId === chainId);
     if (index !== -1) user[field][index].count += 1;
-    else user.cardsSoldCount.push({ chainId: filter.chainId, count: 1 });
+    else user[field].push({ chainId, count: 1 });
 
     await user.save();
   } catch (e: any) {

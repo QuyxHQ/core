@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from "uuid";
 import { generateUsernameSuggestion } from "../../shared/utils/helpers";
 import { findUser, getBoughtCards, getSoldCards, increaseCardCount } from "../user/service";
 import { sendWebhook } from "../../shared/utils/webhook-sender";
+import { flattenDiagnosticMessageText } from "typescript";
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ router.post(
       const tempToken = uuidv4();
 
       const user = await findUser({ _id: identifier });
-      if (!user!.hasCompletedKYC) {
+      if (!user?.hasCompletedKYC) {
         return res.status(400).json({
           status: false,
           message: "kindly complete KYC before creating cards",
@@ -38,7 +39,7 @@ router.post(
 
       const usernameOccurance = await countCards({
         username: req.body.username,
-        isDeleted: true,
+        isDeleted: false,
       });
 
       if (usernameOccurance > 0) {
@@ -58,10 +59,7 @@ router.post(
         tempToken,
       });
 
-      await increaseCardCount(
-        { _id: user!._id, chainId: req.body.chainId },
-        "cardsCreatedCount"
-      );
+      await increaseCardCount({ _id: user._id }, req.body.chainId, "cardsCreatedCount");
 
       return res.status(201).json({
         status: true,

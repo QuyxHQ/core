@@ -14,6 +14,7 @@ import { dateUTC, generateOTP, generateUsernameSuggestion } from "../../shared/u
 import { sendKYCMail } from "../../shared/utils/mailer";
 import { deleteNonce, findNonce } from "../nonce/service";
 import { countSDKUsers, getAppsUserIsConnectedTo } from "../sdk/service";
+import Moralis from "moralis";
 
 const router = express.Router();
 
@@ -304,7 +305,7 @@ router.post(
 );
 
 //# Get a single user (username or address)
-router.get("/:param", async function (req: Request, res: Response) {
+router.get("/single/:param", async function (req: Request, res: Response) {
   try {
     const { param } = req.params as { param: string };
     if (typeof param != "string") return res.sendStatus(400);
@@ -356,6 +357,55 @@ router.get("/search", async function (req: Request, res: Response) {
     });
   }
 });
+
+router.get(
+  "/nfts",
+  canAccessRoute(QUYX_USER.USER),
+  async function (_: Request, res: Response<{}, QuyxLocals>) {
+    try {
+      const { identifier } = res.locals.meta;
+      const user = await findUser({ _id: identifier });
+      const response = await Moralis.EvmApi.nft.getWalletNFTs({
+        chain: "0x61",
+        format: "decimal",
+        normalizeMetadata: false,
+        limit: 20,
+        excludeSpam: true,
+        mediaItems: false,
+        address: user?.address!,
+      });
+
+      const structureNFTResponse = (data: any[]) => {
+        const arr = [];
+
+        for (let item of data) {
+          const metadata = item.metadata ? JSON.parse(item.metadata) : undefined;
+          if (metadata && metadata.image) {
+            arr.push({
+              name: metadata.name,
+              image: metadata.image.startsWith("ipfs://")
+                ? `https://ipfs.io/ipfs/${metadata.image.substring("ipfs://".length)}`
+                : metadata.image,
+            });
+          }
+        }
+
+        return arr;
+      };
+
+      return res.json({
+        status: true,
+        message: "fetched nfts",
+        data: structureNFTResponse(response.raw.result as any),
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
 
 //# route to get all apps they've apps to
 router.get(
