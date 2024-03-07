@@ -7,6 +7,8 @@ import {
   AddToBookmark,
   removeFromBookmarkSchema,
   RemoveFromBookmark,
+  GetBookmark,
+  getBookmarkSchema,
 } from "./schema";
 import {
   addToBookmark,
@@ -54,9 +56,35 @@ router.post(
   }
 );
 
+//# is in bookmark already
+router.get(
+  "/:card",
+  canAccessRoute(QUYX_USER.USER),
+  validate(getBookmarkSchema),
+  async function (req: Request<GetBookmark["params"]>, res: Response<{}, QuyxLocals>) {
+    try {
+      const { identifier } = res.locals.meta;
+      const { card } = req.params;
+
+      const result = await alreadyInBookmark(identifier, card);
+
+      return res.status(200).json({
+        status: true,
+        message: "status fetched",
+        data: { isBookmarked: result },
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
+
 //# removing from bookmark
 router.delete(
-  "/:cardId",
+  "/:card",
   canAccessRoute(QUYX_USER.USER),
   validate(removeFromBookmarkSchema),
   async function (req: Request<RemoveFromBookmark["params"]>, res: Response<{}, QuyxLocals>) {

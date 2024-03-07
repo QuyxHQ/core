@@ -91,7 +91,7 @@ router.put(
       const card = await findCard({ identifier: cardId, chainId, isDeleted: false });
       if (!card) return res.sendStatus(404);
 
-      if (String(card.owner) !== identifier) return res.sendStatus(403);
+      if (String((card.owner as any)._id) !== identifier) return res.sendStatus(403);
       if (card.isForSale) {
         return res.status(409).json({
           status: false,

@@ -2,9 +2,9 @@ import express, { Request, Response } from "express";
 import {
   countCards,
   findCards,
-  findDistinctCard,
+  findTotalTags,
+  getTags,
   getTopCardsSortedByVersion,
-  getTopTags,
 } from "../card/service";
 import { findTopSellers } from "../user/service";
 import { getTopCardsSortedByMostBids } from "../bid/service";
@@ -17,11 +17,25 @@ router.get("/tags/all/:chainId", async function (req: Request, res: Response) {
     const { chainId } = req.params;
     if (!chainId || typeof chainId !== "string") return res.sendStatus(400);
 
-    const tags = (await findDistinctCard("tags", chainId)) as unknown as string[];
+    const { limit = "10", page = "1" } = req.query as any;
+    if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
+
+    const totalTags = await findTotalTags(chainId);
+    const resp = await getTags(chainId, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+    });
+
     return res.json({
       status: true,
       message: "fetched tags",
-      data: tags,
+      data: resp,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        skip: (parseInt(page) - 1) * parseInt(limit),
+        total: totalTags,
+      },
     });
   } catch (e: any) {
     return res.status(500).json({
@@ -79,7 +93,7 @@ router.get("/tags/trending/:chainId", async function (req: Request, res: Respons
     const { chainId } = req.params;
     if (!chainId || typeof chainId !== "string") return res.sendStatus(400);
 
-    const tags = await getTopTags(5);
+    const tags = await getTags(chainId, { page: 1, limit: 5 });
     const limit = 12;
     const data: Record<string, QuyxCard[]> = {};
 
@@ -89,7 +103,7 @@ router.get("/tags/trending/:chainId", async function (req: Request, res: Respons
         { limit, page: 1 }
       );
 
-      data[tag] = cards;
+      data[tag._id] = cards;
     }
 
     return res.json({

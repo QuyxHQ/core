@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import Card, { CardDoc } from "./model";
-import { dateUTC } from "../../shared/utils/helpers";
 
 export async function createCard(
   data: Omit<
@@ -61,15 +60,34 @@ export async function findCard(filter: mongoose.FilterQuery<CardDoc>) {
   }
 }
 
-export async function findDistinctCard(field: string, chainId: string) {
+export async function findTotalTags(chainId: string) {
   try {
-    const result = await Card.distinct(field, {
-      isDeleted: false,
-      isForSale: true,
-      chainId,
-    });
+    const totalTags = await Card.aggregate([
+      { $match: { chainId, isForSale: true, isDeleted: false } },
+      { $unwind: "$tags" },
+      { $group: { _id: null, count: { $sum: 1 } } },
+    ]);
 
-    return result;
+    return (totalTags[0]?.count as number) || 0;
+  } catch (e: any) {
+    throw new Error(e);
+  }
+}
+
+export async function getTags(chainId: string, { page = 1, limit = 10 }) {
+  try {
+    const skip = (page - 1) * limit;
+
+    const tags = await Card.aggregate([
+      { $match: { chainId, isForSale: true, isDeleted: false } },
+      { $unwind: "$tags" },
+      { $group: { _id: "$tags", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+    ]);
+
+    return tags as { _id: string; count: number }[];
   } catch (e: any) {
     throw new Error(e);
   }
@@ -118,38 +136,6 @@ export async function getTopCardsSortedByVersion(limit: number, chainId: string)
       .limit(limit);
 
     return cards;
-  } catch (e: any) {
-    throw new Error(e);
-  }
-}
-
-export async function getTopTags(limit: number) {
-  try {
-    const hour24 = dateUTC();
-    hour24.setHours(hour24.getHours() - 24);
-
-    const topTags = await Card.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: hour24 },
-          isDeleted: false,
-          isForSale: true,
-        },
-      },
-      { $unwind: "$tags" },
-      {
-        $group: {
-          _id: "$tags",
-          cardCount: { $sum: 1 },
-        },
-      },
-      { $sort: { cardCount: -1 } },
-      { $limit: limit },
-    ]);
-
-    console.log(topTags);
-
-    return topTags as string[];
   } catch (e: any) {
     throw new Error(e);
   }

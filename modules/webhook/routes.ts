@@ -75,13 +75,15 @@ router.post(
       const decodedLogs = decodeLog(req.body);
       const chainId = String(parseInt(req.body.chainId, 16)) as (typeof QUYX_NETWORKS)[number];
 
+      console.log(decodedLogs);
+
       for (let decodedLog of decodedLogs) {
         if (decodedLog.name == "BidPlaced") {
           const bidder = decodedLog.args.from;
           const cardId = parseInt(decodedLog.args.cardId.toString() as string);
           const referredBy = decodedLog.args.referredBy;
-          const amount = parseInt(ethers.utils.formatEther(decodedLog.args.amount));
-          const timestamp = dateUTC(decodedLog.args.timestamp);
+          const amount = parseFloat(ethers.utils.formatEther(decodedLog.args.amount));
+          const timestamp = dateUTC(parseInt(decodedLog.args.timestamp.toString()));
 
           //# find card that is listed & also an auction
           const card = await findCard({
@@ -157,17 +159,17 @@ router.post(
           const cardId = parseInt(decodedLog.args.cardId.toString() as string);
           const version = parseInt(decodedLog.args.version.toString() as string);
           const isAuction = decodedLog.args.isAuction as boolean;
-          const listingPrice = parseInt(
+          const listingPrice = parseFloat(
             ethers.utils.formatEther(decodedLog.args.listingPrice)
           );
           const maxNumberOfBids = parseInt(
             decodedLog.args.maxNumberOfBids.toString() as string
           );
-          const end = dateUTC(decodedLog.args.end);
+          const end = dateUTC(parseInt(decodedLog.args.end.toString()));
 
           //# update the card to the latest value
-          await updateCard(
-            { identifier: cardId, chainId, isForSale: false, isDeleted: false },
+          const resp = await updateCard(
+            { identifier: cardId, chainId },
             {
               version,
               isForSale: true,
@@ -177,6 +179,8 @@ router.post(
               auctionEnds: end,
             }
           );
+
+          console.log("response: ", String(resp));
         }
 
         if (decodedLog.name == "CardMinted") {
@@ -203,13 +207,7 @@ router.post(
             //# delete
             await deleteCard({ _id: card._id, isDeleted: false });
             //# update sdk users set card stuff to null
-            await updateManySDKUsers(
-              {
-                card: card._id,
-                isActive: true,
-              },
-              { card: null }
-            );
+            await updateManySDKUsers({ card: card._id, isActive: true }, { card: null });
 
             //# send webhook
             await sendWebhook(card.toJSON());
@@ -318,6 +316,7 @@ router.post(
 
       return res.sendStatus(200);
     } catch (e: any) {
+      console.log(e);
       return res.status(500).json({
         status: false,
         message: e.message,
