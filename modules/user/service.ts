@@ -72,8 +72,6 @@ export async function findUsers(
 
     return result;
   } catch (e: any) {
-    console.log(e);
-
     throw new Error(e);
   }
 }
@@ -88,8 +86,6 @@ export async function findTopSellers(limit = 10) {
       .lean();
     return result;
   } catch (e: any) {
-    console.log(e);
-
     throw new Error(e);
   }
 }

@@ -261,7 +261,6 @@ router.post(
         },
       });
     } catch (e: any) {
-      console.log(e);
       const log = {
         message: e.message ?? e.type ?? "unable to complete request",
         body: req.body,

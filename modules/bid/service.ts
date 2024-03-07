@@ -107,8 +107,6 @@ export async function getTopCardsSortedByMostBids(
       { $limit: limit },
     ]);
 
-    console.log(topCardsSortedByMostBids);
-
     return topCardsSortedByMostBids;
   } catch (e: any) {
     throw new Error(e);

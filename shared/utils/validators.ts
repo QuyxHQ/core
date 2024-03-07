@@ -161,8 +161,6 @@ export async function hasAccessToSDK(
     res.locals.app = app;
     return next();
   } catch (e: any) {
-    console.log(e);
-
     return res.status(500).json({
       status: false,
       message: e.message,

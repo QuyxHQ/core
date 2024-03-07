@@ -75,8 +75,6 @@ router.post(
       const decodedLogs = decodeLog(req.body);
       const chainId = String(parseInt(req.body.chainId, 16)) as (typeof QUYX_NETWORKS)[number];
 
-      console.log(decodedLogs);
-
       for (let decodedLog of decodedLogs) {
         if (decodedLog.name == "BidPlaced") {
           const bidder = decodedLog.args.from;
@@ -179,8 +177,6 @@ router.post(
               auctionEnds: end,
             }
           );
-
-          console.log("response: ", String(resp));
         }
 
         if (decodedLog.name == "CardMinted") {
