@@ -1,6 +1,12 @@
 [
   {
-    "inputs": [{ "internalType": "string", "name": "_baseURL", "type": "string" }],
+    "inputs": [
+      { "internalType": "string", "name": "_baseURL", "type": "string" },
+      { "internalType": "uint256", "name": "_protocolFeePercent", "type": "uint256" },
+      { "internalType": "uint256", "name": "_referralFeePercent", "type": "uint256" },
+      { "internalType": "uint256", "name": "_extraCardPrice", "type": "uint256" },
+      { "internalType": "address", "name": "_fallbackAddress", "type": "address" }
+    ],
     "stateMutability": "nonpayable",
     "type": "constructor"
   },

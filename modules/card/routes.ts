@@ -16,6 +16,7 @@ import { generateUsernameSuggestion } from "../../shared/utils/helpers";
 import { findUser, getBoughtCards, getSoldCards, increaseCardCount } from "../user/service";
 import { sendWebhook } from "../../shared/utils/webhook-sender";
 import { flattenDiagnosticMessageText } from "typescript";
+import { omit } from "lodash";
 
 const router = express.Router();
 
@@ -393,7 +394,14 @@ router.get("/:chainId/:cardId", async function (req: Request, res: Response) {
     return res.json({
       status: true,
       message: "fetched card",
-      data: card,
+      data: omit(card.toJSON(), [
+        "tempToken",
+        "owner.email",
+        "owner._id",
+        "owner.__v",
+        "owner.emailVerificationCode",
+        "owner.emailVerificationCodeExpiry",
+      ]),
     });
   } catch (e: any) {
     return res.status(500).json({
