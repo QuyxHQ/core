@@ -377,9 +377,10 @@ router.put(
       const dev = await findDev({ _id: identifier });
       //# check if still in sudo mode
       if (
-        !dev!.verifiedPasswordLastOn ||
-        dateUTC(dev!.verifiedPasswordLastOn).getTime() + parseInt(config.SUDO_TTL) <
-          dateUTC().getTime()
+        dev?.provider == "email" &&
+        (!dev!.verifiedPasswordLastOn ||
+          dateUTC(dev!.verifiedPasswordLastOn).getTime() + parseInt(config.SUDO_TTL) <
+            dateUTC().getTime())
       ) {
         return res.status(401).json({
           status: false,
@@ -451,6 +452,13 @@ router.put(
 
       const dev = await findDev({ email });
       if (!dev) return res.sendStatus(404);
+
+      if (dev.provider !== "email") {
+        return res.status(409).json({
+          status: true,
+          message: "Account found is not linked with email",
+        });
+      }
 
       const hash = generateHash();
 

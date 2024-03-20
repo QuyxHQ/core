@@ -21,6 +21,7 @@ export const onboardUserSchema = z.object({
   body: z.strictObject({
     role: z.string(),
     heardUsFrom: z.string(),
+    company: z.string(),
   }),
 });
 
@@ -29,6 +30,7 @@ export const editDevSchema = z.object({
     email: z.string().email(),
     firstName: z.string(),
     lastName: z.string(),
+    role: z.string(),
     company: z.string().nullable(),
   }),
 });

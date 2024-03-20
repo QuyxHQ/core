@@ -2,9 +2,8 @@ import express, { Request, Response } from "express";
 import qs from "qs";
 import { get } from "lodash";
 import jwt from "jsonwebtoken";
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import config from "../../shared/utils/config";
-import log from "../../shared/utils/log";
 import { findDev, upsertDev } from "./service";
 import { QUYX_USER } from "../../shared/utils/constants";
 import { signJWT } from "../../shared/utils/jwt";
@@ -64,17 +63,13 @@ async function getGoogleOAuthUser({ code }: { code: string }) {
     const payload = jwt.decode(data.id_token) as GoogleUser;
     return payload;
   } catch (e: any) {
-    console.log("error getting tokens");
-    if (e instanceof AxiosError) {
-      console.log(e.response?.data);
-    }
-
     throw new Error(e.message);
   }
 }
 
 //# initialize github oauth
-router.get("/init/github", async function (_: any, res: Response) {
+router.get("/init/github", async function (req: Request, res: Response) {
+  const path = (get(req, "query.path") || "") as string;
   const rootURL = `https://github.com/login/oauth/authorize`;
 
   const options = {
@@ -135,7 +130,6 @@ router.get("/auth/github", async function (req: Request, res: Response) {
       `${config.DEV_BASE_URL}/oauth/success?refreshToken=${refreshToken}&accessToken=${accessToken}`
     );
   } catch (e: any) {
-    log.error(e, "Unable to complete github OAuth signin");
     return res.redirect(
       `${config.DEV_BASE_URL}/oauth/error?provider=github&message=${e.message}`
     );
@@ -143,7 +137,7 @@ router.get("/auth/github", async function (req: Request, res: Response) {
 });
 
 //# initialize google oauth
-router.get("/init/google", async function (_: any, res: Response) {
+router.get("/init/google", async function (req: Request, res: Response) {
   const rootURL = `https://accounts.google.com/o/oauth2/auth`;
 
   const options = {
@@ -211,7 +205,6 @@ router.get("/auth/google", async function (req: Request, res: Response) {
       `${config.DEV_BASE_URL}/oauth/success?refreshToken=${refreshToken}&accessToken=${accessToken}`
     );
   } catch (e: any) {
-    log.error(e, "Unable to complete google OAuth signin");
     return res.redirect(
       `${config.DEV_BASE_URL}/oauth/error?provider=google&message=${e.message}`
     );
