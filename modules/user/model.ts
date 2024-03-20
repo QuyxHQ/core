@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { QUYX_NETWORKS } from "../../shared/utils/constants";
 
 export interface UserDoc extends QuyxUser, mongoose.Document {}
 
@@ -43,68 +42,16 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    cardsCreatedCount: [
-      {
-        chainId: {
-          type: String,
-          enum: QUYX_NETWORKS,
-        },
-        count: {
-          type: Number,
-          default: 0,
-        },
-      },
-    ],
-    cardsSoldCount: [
-      {
-        chainId: {
-          type: String,
-          enum: QUYX_NETWORKS,
-        },
-        count: {
-          type: Number,
-          default: 0,
-        },
-      },
-    ],
-    cardsBoughtCount: [
-      {
-        chainId: {
-          type: String,
-          enum: QUYX_NETWORKS,
-        },
-        count: {
-          type: Number,
-          default: 0,
-        },
-      },
-    ],
     boughtCards: [
       {
-        chainId: {
-          type: String,
-          enum: QUYX_NETWORKS,
-        },
-        cards: [
-          {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Card",
-          },
-        ],
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Card",
       },
     ],
     soldCards: [
       {
-        chainId: {
-          type: String,
-          enum: QUYX_NETWORKS,
-        },
-        cards: [
-          {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Card",
-          },
-        ],
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Card",
       },
     ],
   },

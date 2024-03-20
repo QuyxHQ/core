@@ -31,12 +31,14 @@ import {
   generateHash,
   generateOTP,
   hashPassword,
+  setCookie,
 } from "../../shared/utils/helpers";
 import { sendDevForgotPasswordMail, sendDevKYCMail } from "../../shared/utils/mailer";
 import config from "../../shared/utils/config";
 import { createSession } from "../session/service";
 import { signJWT } from "../../shared/utils/jwt";
 import { omit } from "lodash";
+import oauthRoutes from "./oauth.routes";
 
 const router = express.Router();
 
@@ -50,7 +52,7 @@ router.post(
       if (sameEmailCount > 0) {
         return res.status(409).json({
           status: false,
-          message: "email address already in use by another account",
+          message: "Email address already in use by another account",
         });
       }
 
@@ -84,9 +86,13 @@ router.post(
       const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
       const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
 
+      // set cookie
+      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
+      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
+
       return res.status(201).json({
         status: true,
-        message: "account registered successfully",
+        message: "Account registered successfully",
         data: {
           data: omit(resp.toJSON(), [
             "emailVerificationOTP",
@@ -110,6 +116,8 @@ router.post(
   }
 );
 
+router.use("/oauth", oauthRoutes);
+
 router.put(
   "/onboard",
   canAccessRoute(QUYX_USER.DEV),
@@ -121,7 +129,7 @@ router.put(
       await updateDev({ _id: identifier }, req.body);
       return res.status(201).json({
         status: true,
-        message: "onboarding completed!",
+        message: "Onboarding completed!",
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -144,7 +152,7 @@ router.post(
       if (!dev) {
         return res.json({
           status: false,
-          message: "invalid email address",
+          message: "Invalid email address",
         });
       }
 
@@ -152,7 +160,7 @@ router.post(
       if (!isPasswordCorrect) {
         return res.json({
           status: false,
-          message: "invalid password combination",
+          message: "Invalid password combination",
         });
       }
 
@@ -169,9 +177,13 @@ router.post(
       const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
       const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
 
+      // set cookie
+      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
+      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
+
       return res.status(201).json({
         status: true,
-        message: "account logged in successfully",
+        message: "Account logged in successfully",
         data: {
           data: omit(dev.toJSON(), [
             "emailVerificationOTP",
@@ -208,7 +220,7 @@ router.get(
 
       return res.json({
         status: true,
-        message: "fetched dev",
+        message: "Fetched dev",
         data: omit(dev.toJSON(), [
           "emailVerificationOTP",
           "emailVerificationOTPExpiry",
@@ -240,7 +252,7 @@ router.put(
       if (dev!.emailVerificationOTP !== otp) {
         return res.status(409).json({
           status: false,
-          message: "wrong OTP code provided",
+          message: "Wrong OTP code provided",
         });
       }
 
@@ -265,7 +277,7 @@ router.put(
 
       return res.json({
         status: true,
-        message: "email verified successfully!",
+        message: "Email verified successfully!",
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -289,7 +301,7 @@ router.put(
       if (dev!.isEmailVerified) {
         return res.status(409).json({
           status: false,
-          message: "email address has already been verified",
+          message: "Email address has already been verified",
         });
       }
 
@@ -311,7 +323,7 @@ router.put(
 
       return res.status(201).json({
         status: true,
-        message: `otp sent to ${dev!.email}`,
+        message: `OTP sent to ${dev!.email}`,
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -337,14 +349,14 @@ router.post(
       if (!isPasswordCorrect) {
         return res.status(409).json({
           status: false,
-          message: "wrong password",
+          message: "Wrong password",
         });
       }
 
       await updateDev({ _id: identifier }, { verifiedPasswordLastOn: dateUTC() });
       return res.json({
         status: true,
-        message: "sudo mode entered",
+        message: "Sudo mode initated",
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -373,7 +385,7 @@ router.put(
       ) {
         return res.status(401).json({
           status: false,
-          message: "enter sudo mode to complete request",
+          message: "Enter sudo mode to complete request",
         });
       }
 
@@ -382,7 +394,7 @@ router.put(
 
       return res.status(201).json({
         status: true,
-        message: "profile updated successfully!",
+        message: "Profile updated successfully!",
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -411,7 +423,7 @@ router.put(
       if (!isPasswordCorrect) {
         return res.status(409).json({
           status: false,
-          message: "old password is not correct",
+          message: "Old password is not correct",
         });
       }
 
@@ -420,7 +432,7 @@ router.put(
 
       return res.status(201).json({
         status: true,
-        message: "password changed successfully!",
+        message: "Password changed successfully!",
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -460,7 +472,7 @@ router.put(
 
       return res.status(201).json({
         status: true,
-        message: `password reset mail sent to ${dev!.email}`,
+        message: `Password reset mail sent to ${dev!.email}`,
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -488,13 +500,13 @@ router.get(
       ) {
         return res.status(400).json({
           status: false,
-          message: "link has expired, request a new one",
+          message: "Link has expired, request a new one",
         });
       }
 
       return res.json({
         status: true,
-        message: "hash is valid",
+        message: "Hash is valid",
         data: omit(dev.toJSON(), [
           "emailVerificationOTP",
           "emailVerificationOTPExpiry",
@@ -533,7 +545,7 @@ router.put(
       ) {
         return res.status(400).json({
           status: false,
-          message: "link has expired, request a new one",
+          message: "Link has expired, request a new one",
         });
       }
 
@@ -542,7 +554,7 @@ router.put(
 
       return res.status(201).json({
         status: true,
-        message: "password changed successfully! proceed to login",
+        message: "Password changed successfully! proceed to login",
       });
     } catch (e: any) {
       return res.status(500).json({

@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+export const checkDuplicateAppNameschema = z.object({
+  query: z.object({
+    name: z.string(),
+  }),
+});
+
+export const searchAppSchema = z.object({
+  query: z.object({
+    q: z.string(),
+  }),
+});
+
 export const registerAppSchema = z.object({
   body: z.strictObject({
     name: z.string(),
@@ -41,6 +53,8 @@ export const editAppSchema = z.object({
   }),
 });
 
+export type CheckDuplicateName = z.TypeOf<typeof checkDuplicateAppNameschema>;
+export type SearchApp = z.TypeOf<typeof searchAppSchema>;
 export type RegisterApp = z.TypeOf<typeof registerAppSchema>;
 export type DeleteApp = z.TypeOf<typeof deleteAppSchema>;
 export type GetApp = z.TypeOf<typeof getAppSchema>;

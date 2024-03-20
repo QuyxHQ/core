@@ -1,78 +1,111 @@
 import express, { Request, Response } from "express";
 import validate from "../../shared/middlewares/validateSchema";
-import { EditUser, SIWE, SIWESchema, VerifyKYC, editUserSchema, verifyKYC } from "./schema";
-import { SiweMessage } from "siwe";
+import {
+  CheckForDuplicateUsername,
+  EditUser,
+  SIWS,
+  SIWSFallback,
+  SIWSFallbackSchema,
+  SIWSSchema,
+  SearchUser,
+  VerifyKYC,
+  checkForDuplicateUsername,
+  editUserSchema,
+  searchUserSchema,
+  verifyKYC,
+} from "./schema";
 import { countUsers, findUser, findUsers, updateUser, upsertUser } from "./service";
 import { generateUsername } from "unique-username-generator";
 import { signJWT } from "../../shared/utils/jwt";
-import { QUYX_USER } from "../../shared/utils/constants";
+import { QUYX_LOG_STATUS, QUYX_USER } from "../../shared/utils/constants";
 import { createSession } from "../session/service";
 import config from "../../shared/utils/config";
 import { canAccessRoute } from "../../shared/utils/validators";
 import { omit } from "lodash";
-import { dateUTC, generateOTP, generateUsernameSuggestion } from "../../shared/utils/helpers";
+import {
+  dateUTC,
+  generateOTP,
+  generateUsernameSuggestion,
+  getCacheKey,
+  setCookie,
+  verifySIWS,
+} from "../../shared/utils/helpers";
 import { sendKYCMail } from "../../shared/utils/mailer";
-import { deleteNonce, findNonce } from "../nonce/service";
-import { countSDKUsers, getAppsUserIsConnectedTo } from "../sdk/service";
-import Moralis from "moralis";
+import { countSDKUsers, deleteSDKUser, getAppsUserIsConnectedTo } from "../sdk/service";
+import { findCard } from "../card/service";
+import { sendWebhook } from "../../shared/utils/webhook-sender";
+import { SigninMessage } from "../../shared/class/signMessage";
 
 const router = express.Router();
 
-//# Logging in with SIWE
-router.post(
-  "/siwe",
-  validate(SIWESchema),
-  async function (req: Request<{}, {}, SIWE["body"]>, res: Response) {
+//# check for duplicate username
+router.get(
+  "/check-for-duplicate-username",
+  validate(checkForDuplicateUsername),
+  async function (
+    req: Request<{}, {}, {}, CheckForDuplicateUsername["query"]>,
+    res: Response
+  ) {
     try {
-      const { message, signature } = req.body;
+      const { username } = req.query;
 
-      const nonce = await findNonce({ nonce: message.nonce });
-      if (!nonce) {
-        return res.status(422).json({
-          status: false,
-          message: "invalid nonce set",
+      const usernameOccurance = await countUsers({ username, isDeleted: false });
+      if (usernameOccurance == 0) {
+        return res.status(200).json({
+          status: true,
+          message: "Username not taken",
         });
       }
 
-      if (dateUTC(nonce.expirationTime).getTime() < dateUTC().getTime()) {
-        return res.status(400).json({
-          status: false,
-          message: "nonce is expired! request a new one",
-        });
+      return res.status(409).json({
+        status: false,
+        message: "Username is already taken, try a new one",
+        data: generateUsernameSuggestion(username),
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
+
+//# Logging in with SIWS - Sign in With Solana
+router.post(
+  "/siws",
+  validate(SIWSSchema),
+  async function (req: Request<{}, {}, SIWS["body"] & { output: any }>, res: Response) {
+    try {
+      const { input, output } = req.body;
+
+      const key = getCacheKey(req, input.address);
+      const cachedNonceData = config.cache.get(key) as CachedData | undefined;
+      if (!cachedNonceData) {
+        //# expired nonce
+        return res
+          .status(422)
+          .json({ status: false, message: "Nonce has expired! Request a new one" });
       }
 
-      if (message.nonce != nonce.nonce) {
-        await deleteNonce({ _id: nonce._id });
-
-        return res.status(422).json({
-          status: false,
-          message: "invalid nonce set",
-        });
+      //# invalid nonce
+      if (cachedNonceData.nonce !== input.nonce) {
+        return res.status(422).json({ status: false, message: "Invalid nonce set" });
       }
 
       //# immediately trash away the nonce
-      await deleteNonce({ _id: nonce._id });
+      config.cache.del(key);
 
-      const messageSIWE = new SiweMessage(message);
-      const resp = await messageSIWE.verify({
-        signature,
-        domain: message.domain,
-        nonce: message.nonce,
-      });
-
-      if (!resp.success) {
-        return res.status(400).json({
-          status: false,
-          message: resp.error?.type,
-          data: {
-            expected: resp.error?.expected,
-            received: resp.error?.received,
-          },
-        });
+      //# verify stuffs >>>>>
+      const isSignerValid = verifySIWS(input, output);
+      if (!isSignerValid) {
+        return res
+          .status(409)
+          .json({ status: false, message: "Sign In verification failed!" });
       }
 
       //# Continue with logging in or registering user
-      const { address } = resp.data;
+      const { address } = input;
       const username = generateUsername("", 3);
 
       const user = await upsertUser(address, {
@@ -93,9 +126,93 @@ router.post(
       const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
       const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
 
+      // set cookie
+      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
+      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
+
       return res.status(201).json({
         status: true,
-        message: "logged in successfully!",
+        message: "Logged in successfully!",
+        data: {
+          accessToken,
+          refreshToken,
+        },
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
+
+//# Logging in with SIWS - Sign in With Solana (Fallback)
+router.post(
+  "/fallback-siws",
+  validate(SIWSFallbackSchema),
+  async function (
+    req: Request<{}, {}, SIWSFallback["body"] & { output: any }>,
+    res: Response
+  ) {
+    try {
+      const { message, signature } = req.body;
+
+      const key = getCacheKey(req, message.address);
+      const cachedNonceData = config.cache.get(key) as CachedData | undefined;
+      if (!cachedNonceData) {
+        //# expired nonce
+        return res
+          .status(422)
+          .json({ status: false, message: "Nonce has expired! Request a new one" });
+      }
+
+      //# invalid nonce
+      if (cachedNonceData.nonce !== message.nonce) {
+        return res.status(422).json({ status: false, message: "Invalid nonce set" });
+      }
+
+      //# immediately trash away the nonce
+      config.cache.del(key);
+
+      //# verify stuffs >>>>>
+      const signinMessage = new SigninMessage(message);
+      const isSignerValid = signinMessage.validate(signature);
+      if (!isSignerValid) {
+        return res
+          .status(409)
+          .json({ status: false, message: "Sign In verification failed!" });
+      }
+
+      //# Continue with logging in or registering user
+      const { address } = message;
+      const username = generateUsername("", 3);
+
+      const user = await upsertUser(address, {
+        address,
+        username,
+      });
+
+      //# Creating a session
+      const session = await createSession(user._id, QUYX_USER.USER, req.get("user-agent"));
+
+      //# creating the payload
+      const payload = {
+        session: session._id,
+        role: QUYX_USER.USER,
+        identifier: user._id,
+      };
+
+      const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
+      const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
+
+      // set cookie
+      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
+      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
+
+      return res.status(201).json({
+        status: true,
+        message: "Logged in successfully!",
         data: {
           accessToken,
           refreshToken,
@@ -124,7 +241,12 @@ router.get(
       return res.json({
         status: true,
         message: "Fetched",
-        data: omit(user.toJSON(), ["emailVerificationCode", "emailVerificationCodeExpiry"]),
+        data: omit(user.toJSON(), [
+          "emailVerificationCode",
+          "emailVerificationCodeExpiry",
+          "boughtCards",
+          "soldCards",
+        ]),
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -153,10 +275,7 @@ router.put(
         if (doesUsernameExist) {
           return res.status(409).json({
             status: false,
-            message: "username is already taken, try a new one",
-            data: {
-              suggestions: generateUsernameSuggestion(username),
-            },
+            message: "Username is already taken, try a new one",
           });
         }
       }
@@ -167,7 +286,7 @@ router.put(
         if (doesEmailExist) {
           return res.status(409).json({
             status: false,
-            message: "email address already exist on another account",
+            message: "Email address already exist on another account",
           });
         }
       }
@@ -187,7 +306,7 @@ router.put(
 
       return res.status(201).json({
         status: true,
-        message: "info updated",
+        message: "Info updated successfully!",
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -210,7 +329,7 @@ router.post(
       if (!user!.email) {
         return res.status(200).json({
           status: false,
-          message: "email address must be set before performing KYC",
+          message: "Email address must be set before performing KYC",
         });
       }
 
@@ -315,7 +434,7 @@ router.get("/single/:param", async function (req: Request, res: Response) {
 
     return res.json({
       status: true,
-      message: "fetched user",
+      message: "Fetched user",
       data: user,
     });
   } catch (e: any) {
@@ -327,76 +446,28 @@ router.get("/single/:param", async function (req: Request, res: Response) {
 });
 
 //# search by username
-router.get("/search", async function (req: Request, res: Response) {
-  try {
-    const { q, limit = "10", page = "1" } = req.query as any;
-    if (typeof q != "string") return res.sendStatus(400);
-    if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
-
-    const totalResults = await countUsers({ username: { $regex: q, $options: "i" } });
-    const result = await findUsers(
-      { username: { $regex: q, $options: "i" } },
-      { limit: parseInt(limit), page: parseInt(page) }
-    );
-
-    return res.json({
-      status: true,
-      message: "fetched users",
-      data: result,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        skip: (parseInt(page) - 1) * parseInt(limit),
-        total: totalResults,
-      },
-    });
-  } catch (e: any) {
-    return res.status(500).json({
-      status: false,
-      message: e.message,
-    });
-  }
-});
-
 router.get(
-  "/nfts",
-  canAccessRoute(QUYX_USER.USER),
-  async function (_: Request, res: Response<{}, QuyxLocals>) {
+  "/search",
+  validate(searchUserSchema),
+  async function (req: Request<{}, {}, {}, SearchUser["query"]>, res: Response) {
     try {
-      const { identifier } = res.locals.meta;
-      const user = await findUser({ _id: identifier });
-      const response = await Moralis.EvmApi.nft.getWalletNFTs({
-        chain: "0x61",
-        format: "decimal",
-        normalizeMetadata: false,
-        limit: 20,
-        excludeSpam: true,
-        mediaItems: false,
-        address: user?.address!,
-      });
+      const { q, limit = "10", page = "1" } = req.query as any;
+      if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
 
-      const structureNFTResponse = (data: any[]) => {
-        const arr = [];
-
-        for (let item of data) {
-          const metadata = item.metadata ? JSON.parse(item.metadata) : undefined;
-          if (metadata && metadata.image) {
-            arr.push({
-              name: metadata.name,
-              image: metadata.image.startsWith("ipfs://")
-                ? `https://ipfs.io/ipfs/${metadata.image.substring("ipfs://".length)}`
-                : metadata.image,
-            });
-          }
-        }
-
-        return arr;
-      };
+      const filter = { username: { $regex: q, $options: "i" } };
+      const totalResults = await countUsers(filter);
+      const result = await findUsers(filter, { limit: parseInt(limit), page: parseInt(page) });
 
       return res.json({
         status: true,
-        message: "fetched nfts",
-        data: structureNFTResponse(response.raw.result as any),
+        message: "Fetched users",
+        data: result,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          skip: (parseInt(page) - 1) * parseInt(limit),
+          total: totalResults,
+        },
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -427,7 +498,7 @@ router.get(
 
       return res.json({
         status: true,
-        message: "fetched",
+        message: "Fetched apps",
         data: result,
         pagination: {
           page: parseInt(page),
@@ -435,6 +506,37 @@ router.get(
           skip: (parseInt(page) - 1) * parseInt(limit),
           total: totalResults,
         },
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
+
+//# disconnecting apps from Quyx dashboard
+router.delete(
+  "/disconnect/:appId/:cardId",
+  canAccessRoute(QUYX_USER.USER),
+  async function (req: Request, res: Response<{}, QuyxLocals>) {
+    try {
+      const { cardId, appId } = req.params;
+      if (typeof cardId != "string" || typeof appId != "string") return res.sendStatus(400);
+
+      const { identifier } = res.locals.meta;
+
+      const card = await findCard({ identifier: cardId });
+      if (!card) return res.sendStatus(404);
+      if (String(card.owner) !== identifier) return res.sendStatus(409);
+
+      await deleteSDKUser({ app: appId, card: cardId });
+      await sendWebhook(card.toJSON(), "event.card_disconnected");
+
+      return res.status(201).json({
+        status: true,
+        message: "Card disconnected successfully",
       });
     } catch (e: any) {
       return res.status(500).json({

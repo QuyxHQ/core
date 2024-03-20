@@ -10,7 +10,7 @@ const cardSchema = new mongoose.Schema(
       required: true,
     },
     identifier: {
-      type: Number,
+      type: String,
       default: null,
     },
     version: {
@@ -26,10 +26,6 @@ const cardSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-    },
-    chainId: {
-      type: String,
-      required: true,
     },
     username: {
       type: String,

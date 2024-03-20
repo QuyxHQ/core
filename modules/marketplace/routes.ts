@@ -7,28 +7,24 @@ import {
   getTopCardsSortedByVersion,
 } from "../card/service";
 import { findTopSellers } from "../user/service";
-import { getTopCardsSortedByMostBids } from "../bid/service";
 
 const router = express.Router();
 
 //# all tags
-router.get("/tags/all/:chainId", async function (req: Request, res: Response) {
+router.get("/tags/all", async function (req: Request, res: Response) {
   try {
-    const { chainId } = req.params;
-    if (!chainId || typeof chainId !== "string") return res.sendStatus(400);
-
     const { limit = "10", page = "1" } = req.query as any;
     if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
 
-    const totalTags = await findTotalTags(chainId);
-    const resp = await getTags(chainId, {
+    const totalTags = await findTotalTags();
+    const resp = await getTags({
       page: parseInt(page),
       limit: parseInt(limit),
     });
 
     return res.json({
       status: true,
-      message: "fetched tags",
+      message: "Fetched tags",
       data: resp,
       pagination: {
         page: parseInt(page),
@@ -46,31 +42,21 @@ router.get("/tags/all/:chainId", async function (req: Request, res: Response) {
 });
 
 //# all cards under a tag
-router.get("/tags/cards/:chainId/:tag", async function (req: Request, res: Response) {
+router.get("/tags/cards/:tag", async function (req: Request, res: Response) {
   try {
-    const { tag, chainId } = req.params;
-    if (!tag || typeof tag !== "string" || !chainId || typeof chainId !== "string") {
-      return res.sendStatus(400);
-    }
+    const { tag } = req.params;
+    if (!tag || typeof tag !== "string") return res.sendStatus(400);
 
     const { limit = "10", page = "1" } = req.query as any;
     if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
 
-    const totalCards = await countCards({
-      tags: tag,
-      chainId,
-      isDeleted: false,
-      isForSale: true,
-    });
-
-    const cards = await findCards(
-      { tags: tag, chainId, isDeleted: false, isForSale: true },
-      { limit: parseInt(limit), page: parseInt(page) }
-    );
+    const filter = { tags: tag, isDeleted: false, isForSale: true };
+    const totalCards = await countCards(filter);
+    const cards = await findCards(filter, { limit: parseInt(limit), page: parseInt(page) });
 
     return res.json({
       status: true,
-      message: "fetched cards",
+      message: "Fetched cards",
       data: cards,
       pagination: {
         page: parseInt(page),
@@ -88,18 +74,15 @@ router.get("/tags/cards/:chainId/:tag", async function (req: Request, res: Respo
 });
 
 //# 5 tags
-router.get("/tags/trending/:chainId", async function (req: Request, res: Response) {
+router.get("/tags/trending", async function (req: Request, res: Response) {
   try {
-    const { chainId } = req.params;
-    if (!chainId || typeof chainId !== "string") return res.sendStatus(400);
-
-    const tags = await getTags(chainId, { page: 1, limit: 5 });
+    const tags = await getTags({ page: 1, limit: 5 });
     const limit = 12;
     const data: Record<string, QuyxCard[]> = {};
 
     for (let tag of tags) {
       const cards = await findCards(
-        { tags: tag, chainId, isDeleted: false, isForSale: true },
+        { tags: tag, isDeleted: false, isForSale: true },
         { limit, page: 1 }
       );
 
@@ -108,7 +91,7 @@ router.get("/tags/trending/:chainId", async function (req: Request, res: Respons
 
     return res.json({
       status: true,
-      message: "fetched cards",
+      message: "Fetched cards",
       data,
     });
   } catch (e: any) {
@@ -120,23 +103,18 @@ router.get("/tags/trending/:chainId", async function (req: Request, res: Respons
 });
 
 //# all cards
-router.get("/cards/:chainId", async function (req: Request, res: Response) {
+router.get("/cards", async function (req: Request, res: Response) {
   try {
-    const { chainId } = req.params;
-    if (!chainId || typeof chainId !== "string") return res.sendStatus(400);
-
     const { limit = "10", page = "1" } = req.query as any;
     if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
 
-    const totalCards = await countCards({ chainId, isDeleted: false, isForSale: true });
-    const cards = await findCards(
-      { chainId, isDeleted: false, isForSale: true },
-      { limit: parseInt(limit), page: parseInt(page) }
-    );
+    const filter = { isDeleted: false, isForSale: true };
+    const totalCards = await countCards(filter);
+    const cards = await findCards(filter, { limit: parseInt(limit), page: parseInt(page) });
 
     return res.json({
       status: true,
-      message: "fetched cards",
+      message: "Fetched cards",
       data: cards,
       pagination: {
         page: parseInt(page),
@@ -163,7 +141,7 @@ router.get("/top/sellers", async function (req: Request, res: Response) {
 
     return res.json({
       status: true,
-      message: "fetched top sellers",
+      message: "Fetched top sellers",
       data: users,
     });
   } catch (e: any) {
@@ -175,41 +153,15 @@ router.get("/top/sellers", async function (req: Request, res: Response) {
 });
 
 //# by number of version
-router.get("/top/cards/version/:chainId", async function (req: Request, res: Response) {
+router.get("/top/cards/version", async function (req: Request, res: Response) {
   try {
-    const { chainId } = req.params;
-    if (!chainId || typeof chainId !== "string") return res.sendStatus(400);
-
-    const { limit = "10" } = req.query as any;
+    const { limit = "12" } = req.query as any;
     if (isNaN(parseInt(limit))) return res.sendStatus(400);
 
-    const cards = await getTopCardsSortedByVersion(parseInt(limit), chainId);
+    const cards = await getTopCardsSortedByVersion(parseInt(limit));
     return res.json({
       status: true,
-      message: "fetched top cards",
-      data: cards,
-    });
-  } catch (e: any) {
-    return res.status(500).json({
-      status: false,
-      message: e.message,
-    });
-  }
-});
-
-//# by number of bids
-router.get("/top/cards/bids/:chainId", async function (req: Request, res: Response) {
-  try {
-    const { chainId } = req.params;
-    if (!chainId || typeof chainId !== "string") return res.sendStatus(400);
-
-    const { limit = "10" } = req.query as any;
-    if (isNaN(parseInt(limit))) return res.sendStatus(400);
-
-    const cards = await getTopCardsSortedByMostBids(parseInt(limit), chainId);
-    return res.json({
-      status: true,
-      message: "fetched top cards",
+      message: "Fetched top cards by version",
       data: cards,
     });
   } catch (e: any) {

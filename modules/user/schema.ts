@@ -1,20 +1,39 @@
 import { z } from "zod";
 
-export const SIWESchema = z.object({
-  body: z.strictObject({
-    message: z.object({
+export const checkForDuplicateUsername = z.object({
+  query: z.object({
+    username: z.string(),
+  }),
+});
+
+export const SIWSSchema = z.object({
+  body: z.object({
+    input: z.strictObject({
       domain: z.string(),
       address: z.string(),
       statement: z.string(),
       uri: z.string(),
-      version: z.string(),
-      chainId: z.number(),
+      chainId: z.string(),
       nonce: z.string(),
       expirationTime: z.string(),
       issuedAt: z.string(),
     }),
-    signature: z.string().regex(/^0x([a-fA-F0-9]{130})$/),
-    address: z.string().regex(/(0x)?[0-9a-fA-F]{40}/),
+    output: z.object({}),
+  }),
+});
+
+export const SIWSFallbackSchema = z.object({
+  body: z.object({
+    message: z.strictObject({
+      domain: z.string(),
+      address: z.string(),
+      statement: z.string(),
+      chainId: z.string(),
+      nonce: z.string(),
+      expirationTime: z.string(),
+      issuedAt: z.string(),
+    }),
+    signature: z.string(),
   }),
 });
 
@@ -32,6 +51,15 @@ export const verifyKYC = z.object({
   }),
 });
 
-export type SIWE = z.TypeOf<typeof SIWESchema>;
+export const searchUserSchema = z.object({
+  query: z.object({
+    q: z.string(),
+  }),
+});
+
+export type CheckForDuplicateUsername = z.TypeOf<typeof checkForDuplicateUsername>;
+export type SIWS = z.TypeOf<typeof SIWSSchema>;
+export type SIWSFallback = z.TypeOf<typeof SIWSFallbackSchema>;
 export type EditUser = z.TypeOf<typeof editUserSchema>;
 export type VerifyKYC = z.TypeOf<typeof verifyKYC>;
+export type SearchUser = z.TypeOf<typeof searchUserSchema>;

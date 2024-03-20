@@ -1,34 +1,43 @@
 import express, { Request, Response } from "express";
+import { v4 as uuidv4 } from "uuid";
 import { canAccessRoute } from "../../shared/utils/validators";
 import { QUYX_USER } from "../../shared/utils/constants";
 import { findSession, findSessions, updateSession } from "./service";
-import { dateUTC } from "../../shared/utils/helpers";
-import { addNonce } from "../nonce/service";
-import { generateNonce } from "siwe";
+import { dateUTC, getCacheKey, isValidAddress } from "../../shared/utils/helpers";
+import config from "../../shared/utils/config";
 
 const router = express.Router();
 
-router.get("/nonce", async function (_: Request, res: Response) {
+router.get("/nonce/:address", async function (req: Request, res: Response) {
   try {
-    const nonce = generateNonce();
-    const issuedAt = dateUTC().toISOString();
-    const expirationTime = dateUTC(dateUTC().getTime() + 5 * 60 * 1000).toISOString();
+    const { address } = req.params;
+    if (!address || typeof address !== "string" || !isValidAddress(address)) {
+      return res.sendStatus(400);
+    }
 
-    //# adding nonce....
-    await addNonce({
-      nonce,
-      issuedAt,
-      expirationTime,
-    });
+    const key = getCacheKey(req, address);
+    const cachedNonceData = config.cache.get(key) as CachedData | undefined;
+    if (cachedNonceData) {
+      return res.json({
+        status: true,
+        message: "Fetched nonce",
+        data: cachedNonceData,
+      });
+    }
+
+    const data: CachedData = {
+      nonce: uuidv4(),
+      issuedAt: dateUTC().toISOString(),
+      expirationTime: dateUTC(dateUTC().getTime() + 5 * 60 * 1000).toISOString(),
+    };
+
+    //# adding nonce to cache
+    config.cache.set(key, data);
 
     return res.json({
       status: true,
-      message: "fetched nonce",
-      data: {
-        nonce,
-        issuedAt,
-        expirationTime,
-      },
+      message: "Fetched nonce",
+      data,
     });
   } catch (e: any) {
     return res.status(500).json({

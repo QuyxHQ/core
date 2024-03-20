@@ -10,7 +10,7 @@ const sessionSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["quyx_user", "quyx_staff", "quyx_dev", "quyx_sdk_user"],
+      enum: QUYX_USERS,
       required: true,
     },
     isActive: {

@@ -16,7 +16,7 @@ router.post(
       if (userInWaitlistOccurence > 0) {
         return res.status(409).json({
           status: false,
-          message: "user already in waitlist",
+          message: "You are already in waitlist",
         });
       }
 
@@ -24,7 +24,7 @@ router.post(
 
       return res.status(201).json({
         status: true,
-        message: "successfully in waitlist",
+        message: "Successfully added to waitlist",
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -45,7 +45,7 @@ router.get(
 
       return res.json({
         status: true,
-        message: "waitlist status fetched",
+        message: "Waitlist status fetched",
         data: userInWaitlistOccurence > 0, // true = yes! in waitlist
       });
     } catch (e: any) {
@@ -63,12 +63,11 @@ router.delete(
   async function (_: Request, res: Response<{}, QuyxLocals>) {
     try {
       const { identifier } = res.locals.meta;
-
       await removeFromAiWaitlist({ dev: identifier });
 
       return res.json({
         status: true,
-        message: "user removed from waitlist",
+        message: "Successfully removed from waitlist",
       });
     } catch (e: any) {
       return res.status(500).json({

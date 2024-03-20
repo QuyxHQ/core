@@ -1,6 +1,51 @@
 import { customAlphabet } from "nanoid";
 import { generateUsername } from "unique-username-generator";
+import { PublicKey } from "@solana/web3.js";
 import bcryptjs from "bcryptjs";
+import { Request, Response } from "express";
+import { get } from "lodash";
+import crypto from "crypto";
+import type { SolanaSignInInput, SolanaSignInOutput } from "@solana/wallet-standard-features";
+import { verifySignIn } from "@solana/wallet-standard-util";
+import config from "./config";
+
+export function setCookie(res: Response, key: string, value: any, maxAge: number) {
+  return res.cookie(key, value, {
+    maxAge,
+    httpOnly: true,
+    secure: config.IS_PROD, // sets it to true in prod!
+  });
+}
+
+export function verifySIWS(input: SolanaSignInInput, output: SolanaSignInOutput): boolean {
+  const serialisedOutput: SolanaSignInOutput = {
+    account: {
+      ...output.account,
+      publicKey: new Uint8Array(output.account.publicKey),
+    },
+    signature: new Uint8Array(output.signature),
+    signedMessage: new Uint8Array(output.signedMessage),
+  };
+
+  return verifySignIn(input, serialisedOutput);
+}
+
+export function getCacheKey(req: Request, address: string) {
+  const origin = get(req, "headers.origin") ?? get(req, "headers.referer") ?? "x-fallback";
+
+  const hash = crypto.createHash("sha256");
+  hash.update(origin + address);
+
+  return hash.digest("hex");
+}
+
+export function isValidAddress(address: string) {
+  try {
+    return PublicKey.isOnCurve(new PublicKey(address));
+  } catch (e: any) {
+    return false;
+  }
+}
 
 export function generateOTP() {
   const nanoid = customAlphabet("0123456789", 6);

@@ -70,8 +70,7 @@ export async function findSDKUser(filter: mongoose.FilterQuery<SdkDoc>) {
   try {
     const result = await Sdk.findOne(filter).populate({
       path: "card",
-      select:
-        "owner identifier version chainId username pfp bio description isForSale isFlagged",
+      select: "owner identifier version username pfp bio description isForSale isFlagged",
     });
     return result;
   } catch (e: any) {
@@ -96,8 +95,7 @@ export async function findSDKUsers(
     const result = await Sdk.find(filter)
       .populate({
         path: "card",
-        select:
-          "owner identifier version chainId username pfp bio description isForSale isFlagged",
+        select: "owner identifier version username pfp bio description isForSale isFlagged",
       })
       .limit(limit)
       .skip((page - 1) * limit)
@@ -120,8 +118,8 @@ export async function deleteSDKUser(filter: mongoose.FilterQuery<SdkDoc>) {
 
 export async function getAppsCardIsLinkedTo(cardId: string) {
   try {
-    const apps = await Sdk.find({ card: cardId }).select("app");
-    return apps as unknown as { _id: string; app: string }[];
+    const apps = await Sdk.find({ card: cardId }).select("app").populate("app");
+    return apps as unknown as { _id: string; app: QuyxApp & { _id: string } }[];
   } catch (e: any) {
     throw new Error(e);
   }

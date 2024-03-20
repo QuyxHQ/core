@@ -2,8 +2,7 @@ import express, { Request, Response } from "express";
 import { canAccessRoute, hasAccessToSDK } from "../../shared/utils/validators";
 import { QUYX_LOG_STATUS, QUYX_USER } from "../../shared/utils/constants";
 import { addLog } from "../log/service";
-import { SiweMessage } from "siwe";
-import { SIWE, SIWESchema } from "../user/schema";
+import { SIWS, SIWSFallback, SIWSFallbackSchema, SIWSSchema } from "../user/schema";
 import validate from "../../shared/middlewares/validateSchema";
 import {
   countSDKUsers,
@@ -18,36 +17,45 @@ import config from "../../shared/utils/config";
 import { signJWT } from "../../shared/utils/jwt";
 import { countCards, findCard, findCards } from "../card/service";
 import { findUser } from "../user/service";
-import { ChangeCardSDK, GetSDKUsers, changeCardSDKSchema, getSDKUsersSchema } from "./schema";
-import { isAddress } from "ethers/lib/utils";
-import { dateUTC } from "../../shared/utils/helpers";
-import { deleteNonce, findNonce } from "../nonce/service";
+import { ChangeCardSDK, changeCardSDKSchema } from "./schema";
+import {
+  dateUTC,
+  getCacheKey,
+  isValidAddress,
+  setCookie,
+  verifySIWS,
+} from "../../shared/utils/helpers";
+import { SigninMessage } from "../../shared/class/signMessage";
 
 const router = express.Router();
 
 //# helper lgo fn
-async function _log({
-  app,
-  dev,
-  responseTime,
-  route,
-  status,
-  log,
-}: {
-  app: string;
-  dev: string;
-  responseTime: number;
-  route: string;
+type WriteLogProps = {
+  start: number;
   status: QUYX_LOG_STATUS;
-  log: string | null;
-}) {
+  message?: string;
+};
+
+async function writeLog(
+  { start, status, message }: WriteLogProps,
+  app: QuyxApp & { _id: string },
+  req: Request
+) {
   await addLog({
-    app,
-    dev,
-    responseTime,
-    route,
+    app: app._id,
+    dev: app.owner,
     status,
-    log,
+    route: req.url,
+    log:
+      status === QUYX_LOG_STATUS.FAILED
+        ? JSON.stringify({
+            body: req.body,
+            params: req.params,
+            query: req.query,
+            message,
+          })
+        : null,
+    responseTime: dateUTC().getTime() - start,
     date: dateUTC(),
   });
 }
@@ -55,172 +63,72 @@ async function _log({
 //# logging in a SDK user
 router.post(
   "/login",
-  validate(SIWESchema),
+  validate(SIWSSchema),
   hasAccessToSDK,
-  async function (req: Request<{}, {}, SIWE["body"]>, res: Response<{}, QuyxLocals>) {
+  async function (
+    req: Request<{}, {}, SIWS["body"] & { output: any }>,
+    res: Response<{}, QuyxLocals>
+  ) {
     const { app } = res.locals;
     const start = dateUTC().getTime();
 
     try {
-      const { message, signature } = req.body;
+      const { input, output } = req.body;
 
-      const nonce = await findNonce({ nonce: message.nonce });
-      if (!nonce) {
-        const log = {
-          message: "invalid nonce set",
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
+      const key = getCacheKey(req, input.address);
+      const cachedNonceData = config.cache.get(key) as CachedData | undefined;
+      if (!cachedNonceData) {
+        //# expired nonce
+        const message = "Nonce has expired! Request a new one";
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: "/login",
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(422).json({
-          status: false,
-          message: log.message,
-        });
+        return res.status(422).json({ status: false, message });
       }
 
-      if (dateUTC(nonce.expirationTime).getTime() < dateUTC().getTime()) {
-        const log = {
-          message: "nonce is expired! request a new one",
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
+      //# invalid nonce
+      if (cachedNonceData.nonce !== input.nonce) {
+        const message = "Invalid nonce set";
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: "/login",
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(400).json({
-          status: false,
-          message: log.message,
-        });
-      }
-
-      if (message.nonce != nonce.nonce) {
-        await deleteNonce({ _id: nonce._id });
-
-        const log = {
-          message: "invalid nonce set",
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
-
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: "/login",
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(422).json({
-          status: false,
-          message: log.message,
-        });
+        return res.status(422).json({ status: false, message });
       }
 
       //# immediately trash away the nonce
-      await deleteNonce({ _id: nonce._id });
+      config.cache.del(key);
+      //# verify stuffs >>>>>
+      const isSignerValid = verifySIWS(input, output);
+      if (!isSignerValid) {
+        const message = "Sign In verification failed!";
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-      const messageSIWE = new SiweMessage(message);
-      const resp = await messageSIWE.verify({
-        signature,
-        domain: message.domain,
-        nonce: message.nonce,
-      });
-
-      if (!resp.success) {
-        const log = {
-          message: resp.error?.type ?? "unable to verify message",
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
-
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: "/login",
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(409).json({
-          status: false,
-          message: log.message,
-        });
+        return res.status(409).json({ status: false, message });
       }
 
-      const { address } = resp.data;
+      const { address } = input;
 
+      //# does app has registered blacklisted Addresses?
       if (app!.blacklistedAddresses) {
+        //# is address part of it?
         if (app!.blacklistedAddresses.includes(address)) {
-          const log = {
-            message: `access blocked for ${address}, REASON::IS_BLACKLISTED`,
-            body: req.body,
-            params: req.params,
-            query: req.query,
-          };
+          const message = `access blocked for ${address}, REASON::IS_BLACKLISTED`;
+          await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-          await _log({
-            app: app!._id,
-            dev: app!.owner,
-            responseTime: dateUTC().getTime() - start,
-            route: "/login",
-            status: QUYX_LOG_STATUS.SUCCESSFUL,
-            log: JSON.stringify(log),
-          });
-
-          return res.status(403).json({
-            status: false,
-            message: log.message,
-          });
+          return res.status(403).json({ status: false, message });
         }
       }
 
+      //# does app has registered whitelisted Addresses?
       if (app!.whitelistedAddresses) {
+        //# is address not part of it?
         if (!app!.whitelistedAddresses.includes(address)) {
-          const log = {
-            message: `access blocked for ${address}, REASON::NOT_WHITELISTED`,
-            body: req.body,
-            params: req.params,
-            query: req.query,
-          };
+          const message = `access blocked for ${address}, REASON::NOT_WHITELISTED`;
+          await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-          await _log({
-            app: app!._id,
-            dev: app!.owner,
-            responseTime: dateUTC().getTime() - start,
-            route: "/login",
-            status: QUYX_LOG_STATUS.SUCCESSFUL,
-            log: JSON.stringify(log),
-          });
-
-          return res.status(403).json({
-            status: false,
-            message: log.message,
-          });
+          return res.status(403).json({ status: false, message });
         }
       }
 
+      //# upsert SDK user
       const sdkUser = await upsertSDKUser(
         { address, isActive: true, app: app!._id },
         { card: null, address, app: app!._id }
@@ -243,51 +151,145 @@ router.post(
       const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
       const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: "/login",
-        status: QUYX_LOG_STATUS.SUCCESSFUL,
-        log: null,
-      });
+      // set cookie
+      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
+      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
 
+      await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
       return res.status(201).json({
         status: true,
-        message: "logged in successfully!",
+        message: "Logged in successfully!",
         data: {
           accessToken,
           refreshToken,
         },
       });
     } catch (e: any) {
-      const log = {
-        message: e.message ?? e.type ?? "unable to complete request",
-        body: req.body,
-        params: req.params,
-        query: req.query,
+      const message = e.message || "unable to complete request";
+      await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
+
+      return res.status(500).json({ status: false, message });
+    }
+  }
+);
+
+//# logging in a SDK user (Fallback)
+router.post(
+  "/fallback-login",
+  validate(SIWSFallbackSchema),
+  hasAccessToSDK,
+  async function (
+    req: Request<{}, {}, SIWSFallback["body"] & { output: any }>,
+    res: Response<{}, QuyxLocals>
+  ) {
+    const { app } = res.locals;
+    const start = dateUTC().getTime();
+
+    try {
+      const { signature, message } = req.body;
+
+      const key = getCacheKey(req, message.address);
+      const cachedNonceData = config.cache.get(key) as CachedData | undefined;
+      if (!cachedNonceData) {
+        //# expired nonce
+        const message = "Nonce has expired! Request a new one";
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
+
+        return res.status(422).json({ status: false, message });
+      }
+
+      //# invalid nonce
+      if (cachedNonceData.nonce !== message.nonce) {
+        const message = "Invalid nonce set";
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
+
+        return res.status(422).json({ status: false, message });
+      }
+
+      //# immediately trash away the nonce
+      config.cache.del(key);
+      //# verify stuffs >>>>>
+      const signinMessage = new SigninMessage(message);
+      const isSignerValid = signinMessage.validate(signature);
+      if (!isSignerValid) {
+        const message = "Sign In verification failed!";
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
+
+        return res.status(409).json({ status: false, message });
+      }
+
+      const { address } = message;
+
+      //# does app has registered blacklisted Addresses?
+      if (app!.blacklistedAddresses) {
+        //# is address part of it?
+        if (app!.blacklistedAddresses.includes(address)) {
+          const message = `access blocked for ${address}, REASON::IS_BLACKLISTED`;
+          await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
+
+          return res.status(403).json({ status: false, message });
+        }
+      }
+
+      //# does app has registered whitelisted Addresses?
+      if (app!.whitelistedAddresses) {
+        //# is address not part of it?
+        if (!app!.whitelistedAddresses.includes(address)) {
+          const message = `access blocked for ${address}, REASON::NOT_WHITELISTED`;
+          await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
+
+          return res.status(403).json({ status: false, message });
+        }
+      }
+
+      //# upsert SDK user
+      const sdkUser = await upsertSDKUser(
+        { address, isActive: true, app: app!._id },
+        { card: null, address, app: app!._id }
+      );
+
+      //# Creating a session
+      const session = await createSession(
+        sdkUser._id,
+        QUYX_USER.SDK_USER,
+        req.get("user-agent")
+      );
+
+      //# creating the payload
+      const payload = {
+        session: session._id,
+        role: QUYX_USER.SDK_USER,
+        identifier: sdkUser._id,
       };
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: "/login",
-        status: QUYX_LOG_STATUS.FAILED,
-        log: JSON.stringify(log),
-      });
+      const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
+      const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
 
-      return res.status(500).json({
-        status: false,
-        message: log.message,
+      // set cookie
+      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
+      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
+
+      await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
+      return res.status(201).json({
+        status: true,
+        message: "Logged in successfully!",
+        data: {
+          accessToken,
+          refreshToken,
+        },
       });
+    } catch (e: any) {
+      const message = e.message || "unable to complete request";
+      await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
+
+      return res.status(500).json({ status: false, message });
     }
   }
 );
 
 //# getting info of the current logged in SDK user
 router.get(
-  "/current",
+  "/whoami",
   hasAccessToSDK,
   canAccessRoute(QUYX_USER.SDK_USER),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
@@ -298,63 +300,23 @@ router.get(
     try {
       const sdkUser = await findSDKUser({ _id: identifier, isActive: true });
       if (!sdkUser) {
-        const log = {
-          message: `user with _id: ${identifier} was not found`,
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
+        const message = `user with _id: ${identifier} was not found`;
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: "/current",
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(404).json({
-          status: false,
-          message: log.message,
-        });
+        return res.status(404).json({ status: false, message });
       }
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: "/current",
-        status: QUYX_LOG_STATUS.SUCCESSFUL,
-        log: null,
-      });
-
+      await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
       return res.json({
         status: true,
-        messge: "user fetched",
+        messge: "User fetched",
         data: sdkUser,
       });
     } catch (e: any) {
-      const log = {
-        message: e.message ?? "unable to complete request",
-        body: req.body,
-        params: req.params,
-        query: req.query,
-      };
+      const message = e.message || "unable to complete request";
+      await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: "/current",
-        status: QUYX_LOG_STATUS.FAILED,
-        log: JSON.stringify(log),
-      });
-
-      return res.status(500).json({
-        status: false,
-        message: log.message,
-      });
+      return res.status(500).json({ status: false, message });
     }
   }
 );
@@ -375,44 +337,27 @@ router.get(
 
       const sdkUser = await findSDKUser({ _id: identifier, isActive: true });
       if (!sdkUser) {
-        const log = {
-          message: `user with _id: ${identifier} was not found`,
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
+        const message = `user with _id: ${identifier} was not found`;
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: "/cards",
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(404).json({
-          status: false,
-          message: log.message,
-        });
+        return res.status(404).json({ status: false, message });
       }
 
       const quyxUser = await findUser({ address: sdkUser.address });
       if (!quyxUser) {
         //# has not interacted with Quyx before
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: "/cards",
-          status: QUYX_LOG_STATUS.SUCCESSFUL,
-          log: null,
-        });
+        await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
 
         return res.status(200).json({
           status: true,
-          message: "cards fetched",
+          message: "Cards fetched",
           data: [],
+          pagination: {
+            page: parseInt(page),
+            limit: parseInt(limit),
+            skip: (parseInt(page) - 1) * parseInt(limit),
+            total: 0,
+          },
         });
       }
 
@@ -422,18 +367,11 @@ router.get(
         { limit: parseInt(limit), page: parseInt(page) }
       );
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: "/cards",
-        status: QUYX_LOG_STATUS.SUCCESSFUL,
-        log: null,
-      });
+      await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
 
       return res.json({
         status: true,
-        message: "fetched cards",
+        message: "Fetched cards",
         data: cards,
         pagination: {
           page: parseInt(page),
@@ -443,31 +381,15 @@ router.get(
         },
       });
     } catch (e: any) {
-      const log = {
-        message: e.message ?? "unable to complete request",
-        body: req.body,
-        params: req.params,
-        query: req.query,
-      };
+      const message = e.message || "unable to complete request";
+      await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: "/cards",
-        status: QUYX_LOG_STATUS.FAILED,
-        log: JSON.stringify(log),
-      });
-
-      return res.status(500).json({
-        status: false,
-        message: log.message,
-      });
+      return res.status(500).json({ status: false, message });
     }
   }
 );
 
-//# changining sdkuser selected card
+//# changing sdkuser selected card
 router.put(
   "/change/:id",
   hasAccessToSDK,
@@ -482,112 +404,40 @@ router.put(
     try {
       const card = await findCard({ _id: id });
       if (!card) {
-        const log = {
-          message: `card with id/identifier of:${id} was not found`,
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
+        const message = `card with id/identifier of:${id} was not found`;
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: `/change/${id}`,
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(404).json({
-          status: false,
-          message: log.message,
-        });
+        return res.status(404).json({ status: false, message });
       }
 
       const sdkUser = await findSDKUser({ _id: identifier, isActive: true });
       if (!sdkUser) {
-        const log = {
-          message: `user with _id:${identifier} was not found`,
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
+        const message = `user with _id: ${identifier} was not found`;
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: `/change/${id}`,
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(404).json({
-          status: false,
-          message: log.message,
-        });
+        return res.status(404).json({ status: false, message });
       }
 
       const quyxUser = await findUser({ address: sdkUser.address });
       if (!quyxUser || quyxUser._id != card.owner) {
-        const log = {
-          message: `user with address: ${sdkUser.address} is not the owner of card '#${card.identifier}'`,
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
+        const message = `user with address: ${sdkUser.address} is not the owner of card '#${card.identifier}'`;
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: `/change/${id}`,
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(401).json({
-          status: false,
-          message: log.message,
-        });
+        return res.status(401).json({ status: false, message });
       }
 
       await updateSDKUser({ _id: identifier }, { card: card._id });
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: `/change/${id}`,
-        status: QUYX_LOG_STATUS.SUCCESSFUL,
-        log: null,
-      });
-
+      await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
       return res.status(201).json({
         status: true,
-        message: "card changed successfully",
+        message: "Preferred card changed successfully",
       });
     } catch (e: any) {
-      const log = {
-        message: e.message ?? "unable to complete request",
-        body: req.body,
-        params: req.params,
-        query: req.query,
-      };
+      const message = e.message || "unable to complete request";
+      await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: `/change/${id}`,
-        status: QUYX_LOG_STATUS.FAILED,
-        log: JSON.stringify(log),
-      });
-
-      return res.status(500).json({
-        status: false,
-        message: log.message,
-      });
+      return res.status(500).json({ status: false, message });
     }
   }
 );
@@ -605,48 +455,24 @@ router.delete(
     try {
       await deleteSDKUser({ _id: identifier });
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: "/disconnect",
-        status: QUYX_LOG_STATUS.SUCCESSFUL,
-        log: null,
-      });
-
+      await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
       return res.status(201).json({
         status: true,
-        message: "account disconnected sucessfully!",
+        message: "Account disconnected sucessfully!",
       });
     } catch (e: any) {
-      const log = {
-        message: e.message ?? "unable to complete request",
-        body: req.body,
-        params: req.params,
-        query: req.query,
-      };
+      const message = e.message || "unable to complete request";
+      await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: "/disconnect",
-        status: QUYX_LOG_STATUS.FAILED,
-        log: JSON.stringify(log),
-      });
-
-      return res.status(500).json({
-        status: false,
-        message: log.message,
-      });
+      return res.status(500).json({ status: false, message });
     }
   }
 );
 
-//# get all users under a sdk (with pagination or not)
+//# get all users under a sdk (with pagination or not) - apiKey is needed
 router.get(
   "/users/all",
-  hasAccessToSDK,
+  hasAccessToSDK(true),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
     const { app } = res.locals;
     const start = dateUTC().getTime();
@@ -656,26 +482,10 @@ router.get(
 
       if (limit && page) {
         if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) {
-          const log = {
-            message: `expected type number for limit & page in req.query`,
-            body: req.body,
-            params: req.params,
-            query: req.query,
-          };
+          const message = `expected type number for limit & page in req.query`;
+          await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-          await _log({
-            app: app!._id,
-            dev: app!.owner,
-            responseTime: dateUTC().getTime() - start,
-            route: "/users/all",
-            status: QUYX_LOG_STATUS.FAILED,
-            log: JSON.stringify(log),
-          });
-
-          return res.status(400).json({
-            status: false,
-            message: log.message,
-          });
+          return res.status(400).json({ status: false, message });
         }
       }
 
@@ -688,18 +498,10 @@ router.get(
         }
       );
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: "/users/all",
-        status: QUYX_LOG_STATUS.SUCCESSFUL,
-        log: null,
-      });
-
+      await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
       return res.json({
         status: true,
-        message: "fetched users",
+        message: "Fetched users",
         data: result,
         ...(limit && page
           ? {
@@ -713,26 +515,10 @@ router.get(
           : {}),
       });
     } catch (e: any) {
-      const log = {
-        message: e.message ?? "unable to complete request",
-        body: req.body,
-        params: req.params,
-        query: req.query,
-      };
+      const message = e.message || "unable to complete request";
+      await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: "/users/all",
-        status: QUYX_LOG_STATUS.FAILED,
-        log: JSON.stringify(log),
-      });
-
-      return res.status(500).json({
-        status: false,
-        message: log.message,
-      });
+      return res.status(500).json({ status: false, message });
     }
   }
 );
@@ -740,133 +526,39 @@ router.get(
 //# get info from address
 router.get(
   "/user/single/:address",
-  hasAccessToSDK,
+  hasAccessToSDK(true),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
     const { app } = res.locals;
     const { address } = req.params;
     const start = dateUTC().getTime();
 
     try {
-      if (!address || typeof address !== "string" || !isAddress(address)) {
-        const log = {
-          message: `expected type address, got: ${String(address)}`,
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
+      if (!address || typeof address !== "string" || !isValidAddress(address)) {
+        const message = `expected type address, got: ${String(address)}`;
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: `/user/${address}`,
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(400).json({
-          status: false,
-          message: log.message,
-        });
+        return res.status(400).json({ status: false, message });
       }
 
       const sdkUser = await findSDKUser({ address, app: app!._id, isActive: true });
       if (!sdkUser) {
-        const log = {
-          message: `no data found for address: ${address}`,
-          body: req.body,
-          params: req.params,
-          query: req.query,
-        };
+        const message = `no data found for address: ${address}`;
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-        await _log({
-          app: app!._id,
-          dev: app!.owner,
-          responseTime: dateUTC().getTime() - start,
-          route: `/user/${address}`,
-          status: QUYX_LOG_STATUS.FAILED,
-          log: JSON.stringify(log),
-        });
-
-        return res.status(404).json({
-          status: false,
-          message: log.message,
-        });
+        return res.status(404).json({ status: false, message });
       }
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: `/user/${address}`,
-        status: QUYX_LOG_STATUS.SUCCESSFUL,
-        log: null,
-      });
-
+      await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
       return res.json({
         status: true,
-        message: "fetched user",
+        message: "Fetched user",
         data: sdkUser,
       });
     } catch (e: any) {
-      const log = {
-        message: e.message ?? "unable to complete request",
-        body: req.body,
-        params: req.params,
-        query: req.query,
-      };
+      const message = e.message || "unable to complete request";
+      await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
-      await _log({
-        app: app!._id,
-        dev: app!.owner,
-        responseTime: dateUTC().getTime() - start,
-        route: `/user/${address}`,
-        status: QUYX_LOG_STATUS.FAILED,
-        log: JSON.stringify(log),
-      });
-
-      return res.status(500).json({
-        status: false,
-        message: log.message,
-      });
-    }
-  }
-);
-
-//# get all users under an app (accessible by dev only ***NOT ON SDK***)
-router.get(
-  "/users/dev/:app",
-  canAccessRoute(QUYX_USER.DEV),
-  validate(getSDKUsersSchema),
-  async function (req: Request<GetSDKUsers["params"]>, res: Response<{}, QuyxLocals>) {
-    try {
-      const { limit = "10", page = "1" } = req.query as any;
-      if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
-
-      const { app } = req.params;
-
-      const totalUsers = await countSDKUsers({ app, isActive: true });
-      const users = await findSDKUsers(
-        { app, isActive: true },
-        { limit: parseInt(limit), page: parseInt(page) }
-      );
-
-      return res.json({
-        status: true,
-        message: "fetched users",
-        data: users,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          skip: (parseInt(page) - 1) * parseInt(limit),
-          total: totalUsers,
-        },
-      });
-    } catch (e: any) {
-      return res.status(500).json({
-        status: false,
-        message: e.message,
-      });
+      return res.status(500).json({ status: false, message });
     }
   }
 );

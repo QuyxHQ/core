@@ -1,9 +1,0 @@
-[
-  {
-    "contractAddress": "0xEa97722A3183586cF1fe6170ab05E0f97c5a438D",
-    "chainId": 97,
-    "chainName": "BNB Smart Chain Testnet",
-    "symbol": "tBNB",
-    "isTestnet": true
-  }
-]

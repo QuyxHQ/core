@@ -1,13 +1,13 @@
 import nodemailer from "nodemailer";
 import util from "util";
-import log from "./log";
-import config from "./config";
+import log from "../utils/log";
+import config from "../utils/config";
 
 type Props = { html: string; receiver: string; subject: string };
 class Mailer {
   send = async ({ html, receiver, subject }: Props) => {
-    const response = await this.sendMail({ receiver, subject, html });
-    log.info(`is mail sent: ${response}`);
+    const _html = html;
+    const response = await this.sendMail({ receiver, subject, html: _html });
     return response;
   };
 

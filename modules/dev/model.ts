@@ -15,7 +15,7 @@ const devSchema = new mongoose.Schema(
     },
     lastName: {
       type: String,
-      required: true,
+      default: null,
     },
     company: {
       type: String,
@@ -31,7 +31,7 @@ const devSchema = new mongoose.Schema(
     },
     provider: {
       type: String,
-      enum: ["google", "email"],
+      enum: ["google", "email", "github"],
       default: "email",
     },
     password: {

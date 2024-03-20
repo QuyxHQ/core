@@ -1,12 +1,16 @@
 import crypto from "crypto";
-import { findApp } from "../../modules/app/service";
 import axios, { AxiosError } from "axios";
 import log from "./log";
 import { getAppsCardIsLinkedTo } from "../../modules/sdk/service";
 import { omit } from "lodash";
 import { dateUTC } from "./helpers";
 
-export async function sendWebhook(card: QuyxCard & { _id: string }) {
+export async function sendWebhook(
+  card: QuyxCard & { _id: string },
+  event: (typeof QUYX_EVENTS)[number]
+) {
+  if (card.isDeleted) return;
+
   const apps = await getAppsCardIsLinkedTo(card._id);
   if (apps.length > 0) {
     for (let app of apps) {
@@ -24,7 +28,7 @@ export async function sendWebhook(card: QuyxCard & { _id: string }) {
           ]),
           date: dateUTC().toISOString(),
         },
-        event: "event.card_updated",
+        event,
         app: app.app,
       });
     }
@@ -33,23 +37,27 @@ export async function sendWebhook(card: QuyxCard & { _id: string }) {
   return;
 }
 
-type Props = { payload: Object; event: (typeof QUYX_EVENTS)[number]; app: string };
+type Props = {
+  payload: Object;
+  event: (typeof QUYX_EVENTS)[number];
+  app: QuyxApp & { _id: string };
+};
+
 async function _sendWebhook({ payload, event, app }: Props, retryCount = 0) {
   const body = { event, data: payload };
 
-  const appInfo = await findApp({ _id: app });
-  if (!appInfo) return;
-  if (!appInfo.webhook) return;
+  if (!app.isActive) return;
+  if (!app.webhook) return;
 
-  log.info(`Sending to ${appInfo.webhook}`);
+  log.info(`Sending webhook to ${app.webhook}`);
 
   try {
     const signature = crypto
-      .createHmac("sha256", appInfo.apiKey)
+      .createHmac("sha256", app.apiKey)
       .update(JSON.stringify(body))
       .digest("hex");
 
-    const response = await axios.post(appInfo.webhook, body, {
+    const response = await axios.post(app.webhook, body, {
       headers: {
         "x-quyx-signature": signature,
         "Content-Type": "application/json",
@@ -82,10 +90,10 @@ async function _sendWebhook({ payload, event, app }: Props, retryCount = 0) {
       if (retryCount < 5) {
         // Retry with exponential backoff
         const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff delay in milliseconds
-        log.info(`Retrying - send to ${appInfo.webhook} in ${delay / 1000} seconds...`);
+        log.info(`Retrying - send to ${app.webhook} in ${delay / 1000} seconds...`);
 
         setTimeout(() => _sendWebhook({ payload, event, app }, retryCount + 1), delay);
-      } else log.error(`Max attempt reached while sending webhook to ${appInfo.webhook}`);
+      } else log.error(`Max attempt reached while sending webhook to ${app.webhook}`);
     } else console.error(e);
   }
 

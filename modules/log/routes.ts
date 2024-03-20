@@ -119,11 +119,9 @@ router.get(
       const { limit = "10", page = "1" } = req.query as any;
       if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
 
-      const totalLogs = await countLog({ dev: identifier });
-      const logs = await findLogs(
-        { dev: identifier },
-        { limit: parseInt(limit), page: parseInt(page) }
-      );
+      const filter = { dev: identifier };
+      const totalLogs = await countLog(filter);
+      const logs = await findLogs(filter, { limit: parseInt(limit), page: parseInt(page) });
 
       return res.json({
         status: true,

@@ -5,9 +5,9 @@ import deserializeUser from "../middlewares/deserializeUser";
 import * as Sentry from "@sentry/node";
 import { ProfilingIntegration } from "@sentry/profiling-node";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import config from "./config";
 import log from "./log";
-import info from "../../contract/info.json";
 
 function createServer() {
   const app = express();
@@ -26,14 +26,15 @@ function createServer() {
   app.use(Sentry.Handlers.requestHandler());
   app.use(Sentry.Handlers.tracingHandler());
 
-  app.use(express.urlencoded({ extended: true, limit: "20mb" }));
-  app.use(express.json({ limit: "20mb" }));
+  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json());
 
   app.use(helmet());
-
+  app.use(cookieParser());
   app.use(
     cors({
       origin: "*",
+      credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE"],
       allowedHeaders: [
         "Origin",
@@ -47,7 +48,6 @@ function createServer() {
         "Quyx-Api-Key",
         "Quyx-Client-Id",
         "Quyx-Cron-Key",
-        "Bundle-Id",
       ],
     })
   );
@@ -62,19 +62,6 @@ function createServer() {
   app.use(deserializeUser); //to deserialize the user..
 
   app.get("/healthz", (_, res: Response) => res.sendStatus(200));
-  app.get("/supported-chains", (_, res: Response) => res.json(info));
-  app.get("/metadata", (_, res: Response) => {
-    return res.json({
-      status: true,
-      message: "metadata fetched",
-      data: {
-        SUDO_TTL: parseInt(config.SUDO_TTL),
-        KYC_OTP_TTL: parseInt(config.KYC_OTP_TTL),
-        HASH_TTL: parseInt(config.HASH_TTL),
-        APP_PUBLIC_KEY: config.APP_PUBLIC_KEY,
-      },
-    });
-  });
   app.use("/", appRouter);
 
   app.use(Sentry.Handlers.errorHandler());

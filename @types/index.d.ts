@@ -6,28 +6,10 @@ type QuyxUser = Base & {
   changedUsernameLastOn: Date | null;
   address: string;
   pfp: string | null;
-  cardsCreatedCount: {
-    chainId: string;
-    count: number;
-  }[];
-  cardsSoldCount: {
-    chainId: string;
-    count: number;
-  }[];
-  cardsBoughtCount: {
-    chainId: string;
-    count: number;
-  }[];
   emailVerificationCode: string | null;
   emailVerificationCodeExpiry: Date | null;
-  boughtCards: {
-    chainId: string;
-    cards: string[];
-  }[];
-  soldCards: {
-    chainId: string;
-    cards: string[];
-  }[];
+  boughtCards: string[];
+  soldCards: string[];
 };
 
 type QuyxSDKUser = Base & {
@@ -44,6 +26,7 @@ type QuyxDev = Base & {
   company: string | null;
   role: string;
   heardUsFrom: string;
+  provider: "google" | "email" | "github";
   password: string;
   verifiedPasswordLastOn: Date | null;
   isEmailVerified: boolean;
@@ -55,9 +38,8 @@ type QuyxDev = Base & {
 
 type QuyxCard = Base & {
   owner: string;
-  identifier: null | number;
+  identifier: null | string;
   version: number;
-  chainId: (typeof QUYX_NETWORKS)[number];
   mintedBy: string;
   tempToken: string;
   username: string;
@@ -108,8 +90,6 @@ type QuyxSession = Base & {
   userAgent: string | null;
 };
 
-const QUYX_NETWORKS = ["97"] as const;
-
 type QuyxApp = Base & {
   apiKey: string;
   clientID: string;
@@ -147,40 +127,6 @@ type QuyxLocals = {
 type Base = { createdAt?: Date; updatedAt?: Date };
 type FindProps = { limit: number; page: number };
 
-type MoralisStreamResponse = {
-  confirmed: boolean;
-  chainId: string;
-  abi: Record<any, any>[];
-  streamId: string;
-  tag: string;
-  retries: number;
-  block: {
-    number: string;
-    hash: string;
-    timestamp: string;
-  };
-  logs: [
-    {
-      logIndex: string;
-      transactionHash: string;
-      address: string;
-      data: string;
-      topic0: string | null;
-      topic1: string | null;
-      topic2: string | null;
-      topic3: string | null;
-    }
-  ];
-  txs: any[];
-  txsInternal: any[];
-  erc20Transfers: any[];
-  erc20Approvals: any[];
-  nftTokenApprovals: any[];
-  nftApprovals: { ERC721: any[]; ERC1155: any[] };
-  nftTransfers: any[];
-  nativeBalances: any[];
-};
-
 type QuyxAiWaitlist = Base & {
   dev: string;
 };
@@ -195,4 +141,68 @@ const QUYX_EVENTS = [
   "event.card_deleted",
   "event.card_updated",
   "event.card_ownershiptransferred",
+  "event.card_listed",
+  "event.card_disconnected",
 ] as const;
+
+type CachedData = {
+  nonce: string;
+  issuedAt: string;
+  expirationTime: string;
+};
+
+type SignMessage = {
+  domain?: string;
+  address: string;
+  chainId: string;
+  nonce: string;
+  statement?: string;
+  issuedAt: string;
+  expirationTime: string;
+};
+
+type GoogleUser = {
+  id: string;
+  email: string;
+  verified_email: boolean;
+  name: string;
+  given_name: string;
+  family_name: string;
+  picture: string;
+  locale: string;
+};
+
+type GitHubUser = {
+  login: string;
+  id: number;
+  node_id: string;
+  avatar_url: string;
+  gravatar_id: string;
+  url: string;
+  html_url: string;
+  followers_url: string;
+  following_url: string;
+  gists_url: string;
+  starred_url: string;
+  subscriptions_url: string;
+  organizations_url: string;
+  repos_url: string;
+  events_url: string;
+  received_events_url: string;
+  type: string;
+  site_admin: boolean;
+  name: string;
+  company: null;
+  blog: string;
+  location: string;
+  email: null;
+  hireable: null;
+  bio: null;
+  twitter_username: null;
+  public_repos: number;
+  public_gists: number;
+  followers: number;
+  following: number;
+  created_at: Date;
+  updated_at: Date;
+};

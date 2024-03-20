@@ -38,7 +38,7 @@ router.post(
       if (existOccurence > 0) {
         return res.status(409).json({
           status: false,
-          message: "you still have an active referral link for this card",
+          message: "You still have an active referral link for this card",
         });
       }
 
@@ -48,7 +48,7 @@ router.post(
       if (!_card.isForSale) {
         return res.status(409).json({
           status: false,
-          message: "cannot generate referral link for a card that is not listed",
+          message: "Cannot generate referral link for a card that is not listed",
         });
       }
 
@@ -95,7 +95,7 @@ router.put(
       await updateReferral({ _id: referral._id }, { clicks: referral.clicks + 1 });
       return res.status(201).json({
         status: true,
-        message: "click count updated successfully",
+        message: "Click count updated successfully",
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -117,16 +117,17 @@ router.get(
 
       const { identifier } = res.locals.meta;
 
-      const totalReferrals = await countReferrals({ user: identifier });
+      const filter = { user: identifier };
+      const totalReferrals = await countReferrals(filter);
       const referrals = await findReferrals(
-        { user: identifier, isActive: true },
+        filter,
         { limit: parseInt(limit), page: parseInt(page) },
         { populateCard: true }
       );
 
       return res.json({
         status: true,
-        message: "fetched referal links",
+        message: "Fetched referrals",
         data: referrals,
         pagination: {
           page: parseInt(page),
@@ -155,16 +156,17 @@ router.get(
 
       const { identifier } = res.locals.meta;
 
-      const totalReferrals = await countReferrals({ user: identifier, isActive: true });
+      const filter = { user: identifier, isActive: true };
+      const totalReferrals = await countReferrals(filter);
       const referrals = await findReferrals(
-        { user: identifier, isActive: true },
+        filter,
         { limit: parseInt(limit), page: parseInt(page) },
         { populateCard: true }
       );
 
       return res.json({
         status: true,
-        message: "fetched referal links",
+        message: "Fetched active referrals",
         data: referrals,
         pagination: {
           page: parseInt(page),
@@ -193,18 +195,20 @@ router.get(
 
       const { identifier } = res.locals.meta;
 
-      const totalReferrals = await countReferrals({
-        user: identifier,
-        isActive: false,
-      });
+      const filter = { user: identifier, isActive: false };
+      const totalReferrals = await countReferrals(filter);
       const referrals = await findReferrals(
-        { user: identifier, isActive: true },
-        { limit: parseInt(limit), page: parseInt(page) }
+        filter,
+        {
+          limit: parseInt(limit),
+          page: parseInt(page),
+        },
+        { populateCard: true }
       );
 
       return res.json({
         status: true,
-        message: "fetched referal links",
+        message: "Fetched inactive referrals",
         data: referrals,
         pagination: {
           page: parseInt(page),
@@ -235,7 +239,7 @@ router.get(
 
       return res.json({
         status: true,
-        message: "referral fetched successfully",
+        message: "Fetched referral",
         data: referral,
       });
     } catch (e: any) {

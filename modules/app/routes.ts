@@ -1,23 +1,68 @@
 import express, { Request, Response } from "express";
 import {
+  CheckDuplicateName,
   DeleteApp,
   EditApp,
   GetApp,
   RegisterApp,
+  SearchApp,
+  checkDuplicateAppNameschema,
   deleteAppSchema,
   editAppSchema,
   getAppSchema,
   registerAppSchema,
+  searchAppSchema,
 } from "./schema";
 import validate from "../../shared/middlewares/validateSchema";
 import { canAccessRoute } from "../../shared/utils/validators";
 import { QUYX_USER } from "../../shared/utils/constants";
 import { countApps, deleteApp, findApp, findApps, registerApp, updateApp } from "./service";
 import { v4 as uuidv4 } from "uuid";
-import { generateHash } from "../../shared/utils/helpers";
+import { generateHash, generateUsernameSuggestion } from "../../shared/utils/helpers";
 import { findDev } from "../dev/service";
+import { getSDKUsersSchema, GetSDKUsers } from "../sdk/schema";
+import { countSDKUsers, findSDKUsers } from "../sdk/service";
 
 const router = express.Router();
+
+router.get(
+  "/check-for-duplicate-app-name",
+  canAccessRoute(QUYX_USER.DEV),
+  validate(checkDuplicateAppNameschema),
+  async function (
+    req: Request<{}, {}, {}, CheckDuplicateName["query"]>,
+    res: Response<{}, QuyxLocals>
+  ) {
+    try {
+      const { identifier } = res.locals.meta;
+      const { name } = req.query;
+
+      const appNameOccurance = await countApps({
+        owner: identifier,
+        name,
+        isActive: true,
+      });
+
+      if (appNameOccurance == 0) {
+        return res.status(200).json({
+          status: true,
+          message: "App name not taken",
+        });
+      }
+
+      return res.status(409).json({
+        status: false,
+        message: `App registered as '${name}' already exist on your account`,
+        data: generateUsernameSuggestion(name),
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
 
 //# registering a new app
 router.post(
@@ -27,11 +72,12 @@ router.post(
   async function (req: Request<{}, {}, RegisterApp["body"]>, res: Response<{}, QuyxLocals>) {
     try {
       const { identifier } = res.locals.meta;
+
       const dev = await findDev({ _id: identifier });
       if (dev && !dev.isEmailVerified) {
         return res.status(409).json({
           status: false,
-          message: "email address must be verified first",
+          message: "Email address must be verified first",
         });
       }
 
@@ -45,7 +91,7 @@ router.post(
       if (appNameOccurance > 0) {
         return res.status(409).json({
           status: false,
-          message: "app with similar name exists on this account",
+          message: `App registered as '${req.body.name}' already exist on your account`,
         });
       }
 
@@ -55,7 +101,7 @@ router.post(
       const app = await registerApp({ ...req.body, owner: identifier, apiKey, clientID });
       return res.status(201).json({
         status: true,
-        message: "app registered successfully",
+        message: "App registered successfully",
         data: app,
       });
     } catch (e: any) {
@@ -78,15 +124,13 @@ router.get(
 
       const { identifier } = res.locals.meta;
 
-      const totalApps = await countApps({ owner: identifier, isActive: true });
-      const apps = await findApps(
-        { owner: identifier, isActive: true },
-        { limit: parseInt(limit), page: parseInt(page) }
-      );
+      const filter = { owner: identifier, isActive: true };
+      const totalApps = await countApps(filter);
+      const apps = await findApps(filter, { limit: parseInt(limit), page: parseInt(page) });
 
       return res.json({
         status: true,
-        message: "fetched apps",
+        message: "Fetched apps",
         data: apps,
         pagination: {
           page: parseInt(page),
@@ -107,30 +151,30 @@ router.get(
 router.get(
   "/search",
   canAccessRoute(QUYX_USER.DEV),
-  async function (req: Request, res: Response<{}, QuyxLocals>) {
+  validate(searchAppSchema),
+  async function (
+    req: Request<{}, {}, {}, SearchApp["query"]>,
+    res: Response<{}, QuyxLocals>
+  ) {
     try {
       const { q } = req.query;
-      if (!q || typeof q !== "string") return res.sendStatus(400);
-
       const { limit = "10", page = "1" } = req.query as any;
       if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
 
       const { identifier } = res.locals.meta;
 
-      const totalApps = await countApps({
+      const filter = {
         owner: identifier,
         isActive: true,
         name: { $regex: q, $options: "i" },
-      });
+      };
 
-      const apps = await findApps(
-        { owner: identifier, isActive: true, name: { $regex: q, $options: "i" } },
-        { limit: parseInt(limit), page: parseInt(page) }
-      );
+      const totalApps = await countApps(filter);
+      const apps = await findApps(filter, { limit: parseInt(limit), page: parseInt(page) });
 
       return res.json({
         status: true,
-        message: "fetched apps",
+        message: "Fetched apps",
         data: apps,
         pagination: {
           page: parseInt(page),
@@ -163,7 +207,7 @@ router.get(
 
       return res.status(200).json({
         status: true,
-        message: "fetched app",
+        message: "Fetched app",
         data: app,
       });
     } catch (e: any) {
@@ -193,7 +237,7 @@ router.put(
 
       return res.status(201).json({
         status: true,
-        message: "app updated",
+        message: "App updated successfully",
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -219,7 +263,45 @@ router.delete(
 
       return res.status(201).json({
         status: true,
-        message: "app deleted",
+        message: "App deleted successfully",
+      });
+    } catch (e: any) {
+      return res.status(500).json({
+        status: false,
+        message: e.message,
+      });
+    }
+  }
+);
+
+//# get all users under an app
+router.get(
+  "/users/:app",
+  canAccessRoute(QUYX_USER.DEV),
+  validate(getSDKUsersSchema),
+  async function (req: Request<GetSDKUsers["params"]>, res: Response<{}, QuyxLocals>) {
+    try {
+      const { limit = "10", page = "1" } = req.query as any;
+      if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) return res.sendStatus(400);
+
+      const { app } = req.params;
+
+      const totalUsers = await countSDKUsers({ app, isActive: true });
+      const users = await findSDKUsers(
+        { app, isActive: true },
+        { limit: parseInt(limit), page: parseInt(page) }
+      );
+
+      return res.json({
+        status: true,
+        message: "Fetched users",
+        data: users,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          skip: (parseInt(page) - 1) * parseInt(limit),
+          total: totalUsers,
+        },
       });
     } catch (e: any) {
       return res.status(500).json({

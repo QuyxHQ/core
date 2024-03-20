@@ -33,7 +33,7 @@ router.post(
       if (isAlreadyBookmarked) {
         return res.status(200).json({
           status: false,
-          message: "card is already in bookmark",
+          message: "Card is already in bookmark",
         });
       }
 
@@ -44,7 +44,7 @@ router.post(
 
       return res.status(201).json({
         status: true,
-        message: "card saved successfully!",
+        message: "Card add to bookmark successfully!",
         data: omit(bookmark.toJSON(), ["_id"]),
       });
     } catch (e: any) {
@@ -70,7 +70,7 @@ router.get(
 
       return res.status(200).json({
         status: true,
-        message: "status fetched",
+        message: "Status fetched",
         data: { isBookmarked: result },
       });
     } catch (e: any) {
@@ -97,7 +97,7 @@ router.delete(
 
       return res.status(201).json({
         status: true,
-        message: "card removed from bookmark",
+        message: "Card removed from bookmark successfully",
       });
     } catch (e: any) {
       return res.status(500).json({
@@ -128,7 +128,7 @@ router.get(
 
       return res.json({
         status: true,
-        message: "bookmarks fetched",
+        message: "Fetched bookmarks",
         data: bookmarks,
         pagination: {
           page: parseInt(page),

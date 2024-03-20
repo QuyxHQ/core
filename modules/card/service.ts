@@ -60,10 +60,10 @@ export async function findCard(filter: mongoose.FilterQuery<CardDoc>) {
   }
 }
 
-export async function findTotalTags(chainId: string) {
+export async function findTotalTags() {
   try {
     const totalTags = await Card.aggregate([
-      { $match: { chainId, isForSale: true, isDeleted: false } },
+      { $match: { isForSale: true, isDeleted: false } },
       { $unwind: "$tags" },
       { $group: { _id: null, count: { $sum: 1 } } },
     ]);
@@ -74,12 +74,12 @@ export async function findTotalTags(chainId: string) {
   }
 }
 
-export async function getTags(chainId: string, { page = 1, limit = 10 }) {
+export async function getTags({ page = 1, limit = 10 }) {
   try {
     const skip = (page - 1) * limit;
 
     const tags = await Card.aggregate([
-      { $match: { chainId, isForSale: true, isDeleted: false } },
+      { $match: { isForSale: true, isDeleted: false } },
       { $unwind: "$tags" },
       { $group: { _id: "$tags", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
@@ -128,9 +128,9 @@ export async function deleteCard(filter: mongoose.FilterQuery<CardDoc>) {
   }
 }
 
-export async function getTopCardsSortedByVersion(limit: number, chainId: string) {
+export async function getTopCardsSortedByVersion(limit: number) {
   try {
-    const cards = await Card.find({ chainId, isForSale: true, isDeleted: false })
+    const cards = await Card.find({ isForSale: true, isDeleted: false })
       .populate("owner")
       .sort({ version: -1, createdAt: -1 })
       .limit(limit);

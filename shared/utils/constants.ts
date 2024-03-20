@@ -5,8 +5,6 @@ export enum QUYX_USER {
   SDK_USER = "quyx_sdk_user",
 }
 
-export const QUYX_NETWORKS = ["97"];
-
 export enum QUYX_LOG_STATUS {
   SUCCESSFUL = "successful",
   FAILED = "failed",

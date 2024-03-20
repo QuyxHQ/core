@@ -10,11 +10,32 @@ export async function createDev(
     | "forgetPasswordHashExpiry"
     | "role"
     | "heardUsFrom"
+    | "provider"
   >
 ) {
   try {
     const resp = await Dev.create(data);
     return resp;
+  } catch (e: any) {
+    if (e && e instanceof mongoose.Error.ValidationError) {
+      for (let field in e.errors) {
+        const errorMsg = e.errors[field].message;
+
+        throw new Error(errorMsg);
+      }
+    }
+
+    throw new Error(e);
+  }
+}
+
+export async function upsertDev(
+  filter: mongoose.FilterQuery<DevDoc>,
+  update: mongoose.UpdateQuery<QuyxDev>
+) {
+  try {
+    const result = await Dev.findOneAndUpdate(filter, update, { upsert: true, new: true });
+    return result;
   } catch (e: any) {
     if (e && e instanceof mongoose.Error.ValidationError) {
       for (let field in e.errors) {
