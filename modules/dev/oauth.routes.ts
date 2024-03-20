@@ -1,7 +1,8 @@
 import express, { Request, Response } from "express";
 import qs from "qs";
 import { get } from "lodash";
-import axios from "axios";
+import jwt from "jsonwebtoken";
+import axios, { AxiosError } from "axios";
 import config from "../../shared/utils/config";
 import log from "../../shared/utils/log";
 import { findDev, upsertDev } from "./service";
@@ -21,9 +22,21 @@ async function getGitHubUser({ code }: { code: string }) {
     const decoded = qs.parse(data);
     const accessToken = decoded.access_token;
 
-    const { data: githubUser } = await axios.get("https://api.github.com/user", {
+    const { data: githubUser } = await axios.get<GitHubUser>("https://api.github.com/user", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+
+    if (!githubUser.email) {
+      const { data } = await axios.get<{ email: string; primary: boolean; verified: true }[]>(
+        "https://api.github.com/user/emails",
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+
+      githubUser.email = data.find((item) => item.verified == true && item.primary == true)
+        ?.email as any;
+    }
 
     return githubUser as GitHubUser;
   } catch (e: any) {
@@ -31,7 +44,7 @@ async function getGitHubUser({ code }: { code: string }) {
   }
 }
 
-async function getGoogleOAuthTokens({ code }: { code: string }) {
+async function getGoogleOAuthUser({ code }: { code: string }) {
   const url = "https://oauth2.googleapis.com/token";
   const values = {
     code,
@@ -42,20 +55,21 @@ async function getGoogleOAuthTokens({ code }: { code: string }) {
   };
 
   try {
-    const res = await axios.post(url, qs.stringify(values), {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    });
+    //# getting tokens
+    const { data } = await axios.post<{ id_token: string; [key: string]: any }>(
+      url,
+      new URLSearchParams(values)
+    );
 
-    return res.data as {
-      id_token: string;
-      access_token: string;
-      refresh_token: string;
-      scope: string;
-      expires_in: number;
-    };
+    //# get user info from jwt >>>>
+    const payload = jwt.decode(data.id_token) as GoogleUser;
+    return payload;
   } catch (e: any) {
+    console.log("error getting tokens");
+    if (e instanceof AxiosError) {
+      console.log(e.response?.data);
+    }
+
     throw new Error(e.message);
   }
 }
@@ -98,6 +112,8 @@ router.get("/auth/github", async function (req: Request, res: Response) {
         email: gitHubUser.email,
         firstName: name[0],
         lastName: name[1] || null,
+        provider: "github",
+        isEmailVerified: true,
       }
     );
 
@@ -131,7 +147,7 @@ router.get("/auth/github", async function (req: Request, res: Response) {
 
 //# initialize google oauth
 router.get("/init/google", async function (_: any, res: Response) {
-  const rootURL = `https://accounts.google.com/a/oauth2/v2/auth`;
+  const rootURL = `https://accounts.google.com/o/oauth2/auth`;
 
   const options = {
     redirect_uri: config.GOOGLE_REDIRECT_URL,
@@ -154,22 +170,11 @@ router.get("/auth/google", async function (req: Request, res: Response) {
   try {
     // get code
     const code = get(req, "query.code") as string | undefined;
-    if (!code) throw new Error("Code is missing in requestƒ");
+    if (!code) throw new Error("Code is missing in request");
 
-    // get id & access token from code
-    const { id_token, access_token } = await getGoogleOAuthTokens({ code });
+    const googleUser = await getGoogleOAuthUser({ code });
 
-    // get user with tokens
-    const { data: googleUser } = await axios.get<GoogleUser>(
-      `https://www.googleapis.com/oauth2/v1/userInfo?alt=json&access_token=${access_token}`,
-      {
-        headers: {
-          Authorization: `Bearer ${id_token}`,
-        },
-      }
-    );
-
-    if (!googleUser.verified_email) throw new Error("Google account is not yet verified");
+    if (!googleUser.email_verified) throw new Error("Google account is not yet verified");
     const existingDev = await findDev({ email: googleUser.email });
     if (existingDev && existingDev.provider !== "google") {
       throw new Error(
@@ -178,12 +183,15 @@ router.get("/auth/google", async function (req: Request, res: Response) {
     }
 
     // upsert the user
+    const name = googleUser.name.split(" ");
     const dev = await upsertDev(
       { email: googleUser.email },
       {
         email: googleUser.email,
-        firstName: googleUser.given_name,
-        lastName: googleUser.family_name,
+        firstName: name[0],
+        lastName: name[1] || null,
+        provider: "google",
+        isEmailVerified: true,
       }
     );
 

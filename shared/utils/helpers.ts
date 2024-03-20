@@ -13,7 +13,18 @@ export function setCookie(res: Response, key: string, value: any, maxAge: number
   return res.cookie(key, value, {
     maxAge,
     httpOnly: true,
+    sameSite: "lax",
+    domain: config.IS_PROD ? ".quyx.xyz" : "localhost",
+    path: "/",
     secure: config.IS_PROD, // sets it to true in prod!
+  });
+}
+
+export function removeCookie(res: Response, key: string) {
+  return res.cookie(key, "", {
+    expires: new Date(0),
+    httpOnly: true,
+    secure: config.IS_PROD,
   });
 }
 

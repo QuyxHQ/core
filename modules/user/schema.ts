@@ -8,32 +8,16 @@ export const checkForDuplicateUsername = z.object({
 
 export const SIWSSchema = z.object({
   body: z.object({
-    input: z.strictObject({
-      domain: z.string(),
-      address: z.string(),
-      statement: z.string(),
-      uri: z.string(),
-      chainId: z.string(),
-      nonce: z.string(),
-      expirationTime: z.string(),
-      issuedAt: z.string(),
-    }),
-    output: z.object({}),
-  }),
-});
-
-export const SIWSFallbackSchema = z.object({
-  body: z.object({
     message: z.strictObject({
       domain: z.string(),
       address: z.string(),
       statement: z.string(),
-      chainId: z.string(),
+      chainId: z.enum(["devnet", "mainnet", "testnet"]),
       nonce: z.string(),
       expirationTime: z.string(),
       issuedAt: z.string(),
     }),
-    signature: z.string(),
+    signature: z.instanceof(Uint8Array),
   }),
 });
 
@@ -59,7 +43,6 @@ export const searchUserSchema = z.object({
 
 export type CheckForDuplicateUsername = z.TypeOf<typeof checkForDuplicateUsername>;
 export type SIWS = z.TypeOf<typeof SIWSSchema>;
-export type SIWSFallback = z.TypeOf<typeof SIWSFallbackSchema>;
 export type EditUser = z.TypeOf<typeof editUserSchema>;
 export type VerifyKYC = z.TypeOf<typeof verifyKYC>;
 export type SearchUser = z.TypeOf<typeof searchUserSchema>;

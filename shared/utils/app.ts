@@ -33,7 +33,7 @@ function createServer() {
   app.use(cookieParser());
   app.use(
     cors({
-      origin: "*",
+      origin: [config.CLIENT_BASE_URL, config.DEV_BASE_URL],
       credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE"],
       allowedHeaders: [

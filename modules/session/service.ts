@@ -8,11 +8,7 @@ import config from "../../shared/utils/config";
 import { findDev } from "../dev/service";
 import { findSDKUser } from "../sdk/service";
 
-export async function createSession(
-  identifier: string,
-  role: QUYX_USER,
-  userAgent?: string
-) {
+export async function createSession(identifier: string, role: QUYX_USER, userAgent?: string) {
   try {
     const session = await Session.create({
       identifier,
@@ -84,10 +80,10 @@ export async function reIssueAccessToken(refreshToken: string) {
   if (!session || !session.isActive) return false;
   let data;
 
-  if (session.role == "quyx_user") data = await findUser({ _id: session.identifier });
-  if (session.role == "quyx_staff") data = null;
-  if (session.role == "quyx_dev") data = await findDev({ _id: session.identifier });
-  if (session.role == "quyx_sdk_user") {
+  if (session.role == QUYX_USER.USER) data = await findUser({ _id: session.identifier });
+  if (session.role == QUYX_USER.STAFF) data = null;
+  if (session.role == QUYX_USER.DEV) data = await findDev({ _id: session.identifier });
+  if (session.role == QUYX_USER.SDK_USER) {
     data = await findSDKUser({
       _id: session.identifier,
       isActive: true,
@@ -101,5 +97,5 @@ export async function reIssueAccessToken(refreshToken: string) {
     { expiresIn: config.ACCESS_TOKEN_TTL }
   );
 
-  return accessToken;
+  return { accessToken, role: session.role };
 }

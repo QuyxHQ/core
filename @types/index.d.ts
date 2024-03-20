@@ -162,14 +162,13 @@ type SignMessage = {
 };
 
 type GoogleUser = {
-  id: string;
   email: string;
-  verified_email: boolean;
+  email_verified: boolean;
+  at_hash: string;
   name: string;
+  picture: string;
   given_name: string;
   family_name: string;
-  picture: string;
-  locale: string;
 };
 
 type GitHubUser = {

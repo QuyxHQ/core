@@ -1,8 +1,9 @@
 import express, { Request, Response } from "express";
+import { QuyxSIWS } from "@quyx/siws";
 import { canAccessRoute, hasAccessToSDK } from "../../shared/utils/validators";
 import { QUYX_LOG_STATUS, QUYX_USER } from "../../shared/utils/constants";
 import { addLog } from "../log/service";
-import { SIWS, SIWSFallback, SIWSFallbackSchema, SIWSSchema } from "../user/schema";
+import { SIWS, SIWSSchema } from "../user/schema";
 import validate from "../../shared/middlewares/validateSchema";
 import {
   countSDKUsers,
@@ -18,14 +19,7 @@ import { signJWT } from "../../shared/utils/jwt";
 import { countCards, findCard, findCards } from "../card/service";
 import { findUser } from "../user/service";
 import { ChangeCardSDK, changeCardSDKSchema } from "./schema";
-import {
-  dateUTC,
-  getCacheKey,
-  isValidAddress,
-  setCookie,
-  verifySIWS,
-} from "../../shared/utils/helpers";
-import { SigninMessage } from "../../shared/class/signMessage";
+import { dateUTC, getCacheKey, isValidAddress, setCookie } from "../../shared/utils/helpers";
 
 const router = express.Router();
 
@@ -73,119 +67,6 @@ router.post(
     const start = dateUTC().getTime();
 
     try {
-      const { input, output } = req.body;
-
-      const key = getCacheKey(req, input.address);
-      const cachedNonceData = config.cache.get(key) as CachedData | undefined;
-      if (!cachedNonceData) {
-        //# expired nonce
-        const message = "Nonce has expired! Request a new one";
-        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
-
-        return res.status(422).json({ status: false, message });
-      }
-
-      //# invalid nonce
-      if (cachedNonceData.nonce !== input.nonce) {
-        const message = "Invalid nonce set";
-        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
-
-        return res.status(422).json({ status: false, message });
-      }
-
-      //# immediately trash away the nonce
-      config.cache.del(key);
-      //# verify stuffs >>>>>
-      const isSignerValid = verifySIWS(input, output);
-      if (!isSignerValid) {
-        const message = "Sign In verification failed!";
-        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
-
-        return res.status(409).json({ status: false, message });
-      }
-
-      const { address } = input;
-
-      //# does app has registered blacklisted Addresses?
-      if (app!.blacklistedAddresses) {
-        //# is address part of it?
-        if (app!.blacklistedAddresses.includes(address)) {
-          const message = `access blocked for ${address}, REASON::IS_BLACKLISTED`;
-          await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
-
-          return res.status(403).json({ status: false, message });
-        }
-      }
-
-      //# does app has registered whitelisted Addresses?
-      if (app!.whitelistedAddresses) {
-        //# is address not part of it?
-        if (!app!.whitelistedAddresses.includes(address)) {
-          const message = `access blocked for ${address}, REASON::NOT_WHITELISTED`;
-          await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
-
-          return res.status(403).json({ status: false, message });
-        }
-      }
-
-      //# upsert SDK user
-      const sdkUser = await upsertSDKUser(
-        { address, isActive: true, app: app!._id },
-        { card: null, address, app: app!._id }
-      );
-
-      //# Creating a session
-      const session = await createSession(
-        sdkUser._id,
-        QUYX_USER.SDK_USER,
-        req.get("user-agent")
-      );
-
-      //# creating the payload
-      const payload = {
-        session: session._id,
-        role: QUYX_USER.SDK_USER,
-        identifier: sdkUser._id,
-      };
-
-      const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
-      const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
-
-      // set cookie
-      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
-      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
-
-      await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
-      return res.status(201).json({
-        status: true,
-        message: "Logged in successfully!",
-        data: {
-          accessToken,
-          refreshToken,
-        },
-      });
-    } catch (e: any) {
-      const message = e.message || "unable to complete request";
-      await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
-
-      return res.status(500).json({ status: false, message });
-    }
-  }
-);
-
-//# logging in a SDK user (Fallback)
-router.post(
-  "/fallback-login",
-  validate(SIWSFallbackSchema),
-  hasAccessToSDK,
-  async function (
-    req: Request<{}, {}, SIWSFallback["body"] & { output: any }>,
-    res: Response<{}, QuyxLocals>
-  ) {
-    const { app } = res.locals;
-    const start = dateUTC().getTime();
-
-    try {
       const { signature, message } = req.body;
 
       const key = getCacheKey(req, message.address);
@@ -209,7 +90,7 @@ router.post(
       //# immediately trash away the nonce
       config.cache.del(key);
       //# verify stuffs >>>>>
-      const signinMessage = new SigninMessage(message);
+      const signinMessage = new QuyxSIWS(message);
       const isSignerValid = signinMessage.validate(signature);
       if (!isSignerValid) {
         const message = "Sign In verification failed!";
@@ -266,8 +147,8 @@ router.post(
       const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
 
       // set cookie
-      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
-      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
+      setCookie(res, "sdk_accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
+      setCookie(res, "sdk_refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
 
       await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
       return res.status(201).json({

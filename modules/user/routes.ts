@@ -1,11 +1,10 @@
 import express, { Request, Response } from "express";
+import { QuyxSIWS } from "@quyx/siws";
 import validate from "../../shared/middlewares/validateSchema";
 import {
   CheckForDuplicateUsername,
   EditUser,
   SIWS,
-  SIWSFallback,
-  SIWSFallbackSchema,
   SIWSSchema,
   SearchUser,
   VerifyKYC,
@@ -28,13 +27,11 @@ import {
   generateUsernameSuggestion,
   getCacheKey,
   setCookie,
-  verifySIWS,
 } from "../../shared/utils/helpers";
 import { sendKYCMail } from "../../shared/utils/mailer";
 import { countSDKUsers, deleteSDKUser, getAppsUserIsConnectedTo } from "../sdk/service";
 import { findCard } from "../card/service";
 import { sendWebhook } from "../../shared/utils/webhook-sender";
-import { SigninMessage } from "../../shared/class/signMessage";
 
 const router = express.Router();
 
@@ -71,90 +68,11 @@ router.get(
   }
 );
 
-//# Logging in with SIWS - Sign in With Solana
+//# Logging in
 router.post(
   "/siws",
   validate(SIWSSchema),
   async function (req: Request<{}, {}, SIWS["body"] & { output: any }>, res: Response) {
-    try {
-      const { input, output } = req.body;
-
-      const key = getCacheKey(req, input.address);
-      const cachedNonceData = config.cache.get(key) as CachedData | undefined;
-      if (!cachedNonceData) {
-        //# expired nonce
-        return res
-          .status(422)
-          .json({ status: false, message: "Nonce has expired! Request a new one" });
-      }
-
-      //# invalid nonce
-      if (cachedNonceData.nonce !== input.nonce) {
-        return res.status(422).json({ status: false, message: "Invalid nonce set" });
-      }
-
-      //# immediately trash away the nonce
-      config.cache.del(key);
-
-      //# verify stuffs >>>>>
-      const isSignerValid = verifySIWS(input, output);
-      if (!isSignerValid) {
-        return res
-          .status(409)
-          .json({ status: false, message: "Sign In verification failed!" });
-      }
-
-      //# Continue with logging in or registering user
-      const { address } = input;
-      const username = generateUsername("", 3);
-
-      const user = await upsertUser(address, {
-        address,
-        username,
-      });
-
-      //# Creating a session
-      const session = await createSession(user._id, QUYX_USER.USER, req.get("user-agent"));
-
-      //# creating the payload
-      const payload = {
-        session: session._id,
-        role: QUYX_USER.USER,
-        identifier: user._id,
-      };
-
-      const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
-      const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
-
-      // set cookie
-      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
-      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
-
-      return res.status(201).json({
-        status: true,
-        message: "Logged in successfully!",
-        data: {
-          accessToken,
-          refreshToken,
-        },
-      });
-    } catch (e: any) {
-      return res.status(500).json({
-        status: false,
-        message: e.message,
-      });
-    }
-  }
-);
-
-//# Logging in with SIWS - Sign in With Solana (Fallback)
-router.post(
-  "/fallback-siws",
-  validate(SIWSFallbackSchema),
-  async function (
-    req: Request<{}, {}, SIWSFallback["body"] & { output: any }>,
-    res: Response
-  ) {
     try {
       const { message, signature } = req.body;
 
@@ -176,7 +94,7 @@ router.post(
       config.cache.del(key);
 
       //# verify stuffs >>>>>
-      const signinMessage = new SigninMessage(message);
+      const signinMessage = new QuyxSIWS(message);
       const isSignerValid = signinMessage.validate(signature);
       if (!isSignerValid) {
         return res

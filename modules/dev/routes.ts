@@ -150,15 +150,22 @@ router.post(
 
       const dev = await findDev({ email });
       if (!dev) {
-        return res.json({
+        return res.status(409).json({
           status: false,
           message: "Invalid email address",
         });
       }
 
+      if (dev.provider !== "email") {
+        return res.status(409).json({
+          status: false,
+          message: `Email address was used with ${dev.provider} signin`,
+        });
+      }
+
       const isPasswordCorrect = await comparePasswords(password, dev.password);
       if (!isPasswordCorrect) {
-        return res.json({
+        return res.status(409).json({
           status: false,
           message: "Invalid password combination",
         });

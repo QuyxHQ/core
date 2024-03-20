@@ -3,7 +3,12 @@ import { v4 as uuidv4 } from "uuid";
 import { canAccessRoute } from "../../shared/utils/validators";
 import { QUYX_USER } from "../../shared/utils/constants";
 import { findSession, findSessions, updateSession } from "./service";
-import { dateUTC, getCacheKey, isValidAddress } from "../../shared/utils/helpers";
+import {
+  dateUTC,
+  getCacheKey,
+  isValidAddress,
+  removeCookie,
+} from "../../shared/utils/helpers";
 import config from "../../shared/utils/config";
 
 const router = express.Router();
@@ -101,10 +106,18 @@ router.delete(
   canAccessRoute([QUYX_USER.DEV, QUYX_USER.SDK_USER, QUYX_USER.STAFF, QUYX_USER.USER]),
   async function (_: Request, res: Response<{}, QuyxLocals>) {
     try {
-      const { session } = res.locals.meta;
+      const { session, role } = res.locals.meta;
 
       const resp = await updateSession({ _id: session }, { isActive: false });
       if (!resp) return res.sendStatus(409);
+
+      if (role === QUYX_USER.SDK_USER) {
+        removeCookie(res, "sdk_accessToken");
+        removeCookie(res, "sdk_refreshToken");
+      } else {
+        removeCookie(res, "accessToken");
+        removeCookie(res, "refreshToken");
+      }
 
       return res.sendStatus(201);
     } catch (e: any) {
