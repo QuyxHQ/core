@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { QUYX_USER } from "../../shared/utils/constants";
 
 export interface SessionDoc extends QuyxSession, mongoose.Document {}
 
@@ -10,7 +11,7 @@ const sessionSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: QUYX_USERS,
+      enum: QUYX_USER,
       required: true,
     },
     isActive: {
