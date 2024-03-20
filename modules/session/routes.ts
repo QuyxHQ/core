@@ -1,13 +1,12 @@
 import express, { Request, Response } from "express";
-import { v4 as uuidv4 } from "uuid";
 import { canAccessRoute } from "../../shared/utils/validators";
 import { QUYX_USER } from "../../shared/utils/constants";
 import { findSession, findSessions, updateSession } from "./service";
 import {
   dateUTC,
+  generateNonce,
   getCacheKey,
   isValidAddress,
-  removeCookie,
 } from "../../shared/utils/helpers";
 import config from "../../shared/utils/config";
 
@@ -31,7 +30,7 @@ router.get("/nonce/:address", async function (req: Request, res: Response) {
     }
 
     const data: CachedData = {
-      nonce: uuidv4(),
+      nonce: generateNonce(),
       issuedAt: dateUTC().toISOString(),
       expirationTime: dateUTC(dateUTC().getTime() + 5 * 60 * 1000).toISOString(),
     };
@@ -106,18 +105,10 @@ router.delete(
   canAccessRoute([QUYX_USER.DEV, QUYX_USER.SDK_USER, QUYX_USER.STAFF, QUYX_USER.USER]),
   async function (_: Request, res: Response<{}, QuyxLocals>) {
     try {
-      const { session, role } = res.locals.meta;
+      const { session } = res.locals.meta;
 
       const resp = await updateSession({ _id: session }, { isActive: false });
       if (!resp) return res.sendStatus(409);
-
-      if (role === QUYX_USER.SDK_USER) {
-        removeCookie(res, "sdk_accessToken");
-        removeCookie(res, "sdk_refreshToken");
-      } else {
-        removeCookie(res, "accessToken");
-        removeCookie(res, "refreshToken");
-      }
 
       return res.sendStatus(201);
     } catch (e: any) {

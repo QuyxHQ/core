@@ -97,5 +97,5 @@ export async function reIssueAccessToken(refreshToken: string) {
     { expiresIn: config.ACCESS_TOKEN_TTL }
   );
 
-  return { accessToken, role: session.role };
+  return accessToken;
 }

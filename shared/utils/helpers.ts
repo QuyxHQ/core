@@ -2,29 +2,9 @@ import { customAlphabet } from "nanoid";
 import { generateUsername } from "unique-username-generator";
 import { PublicKey } from "@solana/web3.js";
 import bcryptjs from "bcryptjs";
-import { Request, Response } from "express";
+import { Request } from "express";
 import { get } from "lodash";
 import crypto from "crypto";
-import config from "./config";
-
-export function setCookie(res: Response, key: string, value: any, maxAge: number) {
-  return res.cookie(key, value, {
-    maxAge,
-    httpOnly: true,
-    sameSite: "lax",
-    domain: config.IS_PROD ? ".quyx.xyz" : "localhost",
-    path: "/",
-    secure: config.IS_PROD, // sets it to true in prod!
-  });
-}
-
-export function removeCookie(res: Response, key: string) {
-  return res.cookie(key, "", {
-    expires: new Date(0),
-    httpOnly: true,
-    secure: config.IS_PROD,
-  });
-}
 
 export function getCacheKey(req: Request, address: string) {
   const origin = get(req, "headers.origin") ?? get(req, "headers.referer") ?? "x-fallback";
@@ -50,6 +30,11 @@ export function generateOTP() {
 
 export function generateHash() {
   const nanoid = customAlphabet("abce012345abde6789f0dc", 32);
+  return nanoid();
+}
+
+export function generateNonce() {
+  const nanoid = customAlphabet("abce012345abde6789f0dc", 10);
   return nanoid();
 }
 

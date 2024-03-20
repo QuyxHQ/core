@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import { QuyxSIWS } from "@quyx/siws";
+import bs58 from "bs58";
 import validate from "../../shared/middlewares/validateSchema";
 import {
   CheckForDuplicateUsername,
@@ -16,7 +17,7 @@ import {
 import { countUsers, findUser, findUsers, updateUser, upsertUser } from "./service";
 import { generateUsername } from "unique-username-generator";
 import { signJWT } from "../../shared/utils/jwt";
-import { QUYX_LOG_STATUS, QUYX_USER } from "../../shared/utils/constants";
+import { QUYX_USER } from "../../shared/utils/constants";
 import { createSession } from "../session/service";
 import config from "../../shared/utils/config";
 import { canAccessRoute } from "../../shared/utils/validators";
@@ -26,7 +27,6 @@ import {
   generateOTP,
   generateUsernameSuggestion,
   getCacheKey,
-  setCookie,
 } from "../../shared/utils/helpers";
 import { sendKYCMail } from "../../shared/utils/mailer";
 import { countSDKUsers, deleteSDKUser, getAppsUserIsConnectedTo } from "../sdk/service";
@@ -95,7 +95,7 @@ router.post(
 
       //# verify stuffs >>>>>
       const signinMessage = new QuyxSIWS(message);
-      const isSignerValid = signinMessage.validate(signature);
+      const isSignerValid = signinMessage.validate(bs58.decode(signature));
       if (!isSignerValid) {
         return res
           .status(409)
@@ -123,10 +123,6 @@ router.post(
 
       const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
       const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
-
-      // set cookie
-      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
-      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
 
       return res.status(201).json({
         status: true,

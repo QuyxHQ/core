@@ -75,70 +75,76 @@ export function canAccessRoute(role: Props | Props[]) {
 
 export function hasAccessToSDK(onlyApiKeyIsAllowed: boolean = false) {
   return async function (req: Request, res: Response<{}, QuyxLocals>, next: NextFunction) {
-    try {
-      const apiKey = get(req, "headers.quyx-api-key") ?? null;
-      if (apiKey) {
-        //# check that apiKey is valid...(xxxxxx)
-        const app = await findApp({ apiKey });
-        if (!app) {
-          return res.status(401).json({ status: false, message: "invalid apiKey passed" });
-        }
+    let app: ({ _id: string } & QuyxApp) | null = null;
 
-        res.locals.app = app;
-        return next();
+    const apiKey = get(req, "headers.quyx-api-key") ?? null;
+    if (apiKey) {
+      //# check that apiKey is valid...(xxxxxx)
+      app = await findApp({ apiKey });
+      if (!app) {
+        return res.status(401).json({
+          status: false,
+          message: "invalid apiKey passed",
+        });
       }
+    }
 
-      if (onlyApiKeyIsAllowed) {
-        //# return error, use api key to access this route
-        return res
-          .status(401)
-          .json({ status: false, message: "apiKey is required to access this route" });
-      }
+    if (onlyApiKeyIsAllowed) {
+      //# return error, use api key to access this route
+      return res.status(401).json({
+        status: false,
+        message: "apiKey is required to access this route",
+      });
+    }
 
-      //# no apiKey? check for clientID then.....
-      const clientID = get(req, "headers.quyx-client-id") ?? null;
-      if (!clientID) {
-        return res.status(401).json({ status: false, message: "apiKey/clientID is missing" });
-      }
-
-      const app = await findApp({ clientID });
+    //# no apiKey? check for clientID then.....
+    const clientID = get(req, "headers.quyx-client-id") ?? null;
+    if (!clientID) {
+      //# no client id?
+      return res.status(401).json({
+        status: false,
+        message: "apiKey/clientID is missing",
+      });
+    } else {
+      app = await findApp({ clientID });
       //# no app found for clientId?
       if (!app) {
-        return res.status(401).json({ status: false, message: "invalid clientID passed" });
+        return res.status(401).json({
+          status: false,
+          message: "invalid clientID passed",
+        });
       }
-
-      //# blocking external apps - unsure....
-      // if (app.allowedBundleIDs) {
-      //   const bundleID = (get(req, "headers.bundle-id") as string) ?? null;
-      //   if (!bundleID || !app.allowedBundleIDs.includes(bundleID)) {
-      //     return res.status(401).json({
-      //       status: false,
-      //       message: "access blocked from origin",
-      //     });
-      //   }
-      // }
-
-      //# blocking external websites
-      if (app.allowedDomains) {
-        const origin = get(req, "headers.origin") ?? get(req, "headers.referer") ?? null;
-        const domain = origin ? new URL(origin).hostname : null;
-        if (
-          !domain ||
-          (!app.allowedDomains.includes(domain) &&
-            domain != new URL(config.DEV_BASE_URL).hostname)
-        ) {
-          return res.status(401).json({
-            status: false,
-            message: "access blocked from origin",
-          });
-        }
-      }
-
-      res.locals.app = app;
-      return next();
-    } catch (e: any) {
-      return res.status(500).json({ status: false, message: e.message });
     }
+
+    // # blocking external apps - unsure....
+    if (app.allowedBundleIDs) {
+      const bundleID = (get(req, "headers.bundle-id") as string) ?? null;
+      if (!bundleID || !app.allowedBundleIDs.includes(bundleID)) {
+        return res.status(401).json({
+          status: false,
+          message: "access blocked from origin",
+        });
+      }
+    }
+
+    // # blocking external websites
+    if (app.allowedDomains) {
+      const origin = get(req, "headers.origin") ?? get(req, "headers.referer") ?? null;
+      const domain = origin ? new URL(origin).hostname : null;
+      if (
+        !domain ||
+        (!app.allowedDomains.includes(domain) &&
+          domain != new URL(config.DEV_BASE_URL).hostname)
+      ) {
+        return res.status(401).json({
+          status: false,
+          message: "access blocked from origin",
+        });
+      }
+    }
+
+    if (app) res.locals.app = app;
+    return next();
   };
 }
 

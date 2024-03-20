@@ -5,7 +5,6 @@ import deserializeUser from "../middlewares/deserializeUser";
 import * as Sentry from "@sentry/node";
 import { ProfilingIntegration } from "@sentry/profiling-node";
 import helmet from "helmet";
-import cookieParser from "cookie-parser";
 import config from "./config";
 import log from "./log";
 
@@ -30,11 +29,9 @@ function createServer() {
   app.use(express.json());
 
   app.use(helmet());
-  app.use(cookieParser());
   app.use(
     cors({
-      origin: [config.CLIENT_BASE_URL, config.DEV_BASE_URL],
-      credentials: true,
+      origin: "*",
       methods: ["GET", "POST", "PUT", "DELETE"],
       allowedHeaders: [
         "Origin",

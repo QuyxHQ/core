@@ -17,7 +17,7 @@ export const SIWSSchema = z.object({
       expirationTime: z.string(),
       issuedAt: z.string(),
     }),
-    signature: z.instanceof(Uint8Array),
+    signature: z.string(),
   }),
 });
 

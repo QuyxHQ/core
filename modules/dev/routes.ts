@@ -31,7 +31,6 @@ import {
   generateHash,
   generateOTP,
   hashPassword,
-  setCookie,
 } from "../../shared/utils/helpers";
 import { sendDevForgotPasswordMail, sendDevKYCMail } from "../../shared/utils/mailer";
 import config from "../../shared/utils/config";
@@ -85,10 +84,6 @@ router.post(
 
       const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
       const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
-
-      // set cookie
-      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
-      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
 
       return res.status(201).json({
         status: true,
@@ -183,10 +178,6 @@ router.post(
 
       const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
       const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
-
-      // set cookie
-      setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
-      setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
 
       return res.status(201).json({
         status: true,

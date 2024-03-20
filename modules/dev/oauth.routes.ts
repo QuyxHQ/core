@@ -9,7 +9,6 @@ import { findDev, upsertDev } from "./service";
 import { QUYX_USER } from "../../shared/utils/constants";
 import { signJWT } from "../../shared/utils/jwt";
 import { createSession } from "../session/service";
-import { setCookie } from "../../shared/utils/helpers";
 
 const router = express.Router();
 
@@ -131,12 +130,10 @@ router.get("/auth/github", async function (req: Request, res: Response) {
     const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
     const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
 
-    // set cookie
-    setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
-    setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
-
     // redirect back to client
-    return res.redirect(config.DEV_BASE_URL);
+    return res.redirect(
+      `${config.DEV_BASE_URL}/oauth/success?refreshToken=${refreshToken}&accessToken=${accessToken}`
+    );
   } catch (e: any) {
     log.error(e, "Unable to complete github OAuth signin");
     return res.redirect(
@@ -209,12 +206,10 @@ router.get("/auth/google", async function (req: Request, res: Response) {
     const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
     const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
 
-    // set cookie
-    setCookie(res, "accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
-    setCookie(res, "refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
-
     // redirect back to client
-    return res.redirect(config.DEV_BASE_URL);
+    return res.redirect(
+      `${config.DEV_BASE_URL}/oauth/success?refreshToken=${refreshToken}&accessToken=${accessToken}`
+    );
   } catch (e: any) {
     log.error(e, "Unable to complete google OAuth signin");
     return res.redirect(

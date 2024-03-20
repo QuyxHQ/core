@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import { QuyxSIWS } from "@quyx/siws";
+import bs58 from "bs58";
 import { canAccessRoute, hasAccessToSDK } from "../../shared/utils/validators";
 import { QUYX_LOG_STATUS, QUYX_USER } from "../../shared/utils/constants";
 import { addLog } from "../log/service";
@@ -19,7 +20,7 @@ import { signJWT } from "../../shared/utils/jwt";
 import { countCards, findCard, findCards } from "../card/service";
 import { findUser } from "../user/service";
 import { ChangeCardSDK, changeCardSDKSchema } from "./schema";
-import { dateUTC, getCacheKey, isValidAddress, setCookie } from "../../shared/utils/helpers";
+import { dateUTC, getCacheKey, isValidAddress } from "../../shared/utils/helpers";
 
 const router = express.Router();
 
@@ -58,7 +59,7 @@ async function writeLog(
 router.post(
   "/login",
   validate(SIWSSchema),
-  hasAccessToSDK,
+  hasAccessToSDK(),
   async function (
     req: Request<{}, {}, SIWS["body"] & { output: any }>,
     res: Response<{}, QuyxLocals>
@@ -91,7 +92,8 @@ router.post(
       config.cache.del(key);
       //# verify stuffs >>>>>
       const signinMessage = new QuyxSIWS(message);
-      const isSignerValid = signinMessage.validate(signature);
+      const isSignerValid = signinMessage.validate(bs58.decode(signature));
+
       if (!isSignerValid) {
         const message = "Sign In verification failed!";
         await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
@@ -146,10 +148,6 @@ router.post(
       const accessToken = signJWT(payload, { expiresIn: config.ACCESS_TOKEN_TTL });
       const refreshToken = signJWT(payload, { expiresIn: config.REFRESH_TOKEN_TTL });
 
-      // set cookie
-      setCookie(res, "sdk_accessToken", accessToken, 5 * 60 * 1000); // 5 minutes
-      setCookie(res, "sdk_refreshToken", refreshToken, 365 * 24 * 60 * 60 * 1000); // 1yr
-
       await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
       return res.status(201).json({
         status: true,
@@ -171,7 +169,7 @@ router.post(
 //# getting info of the current logged in SDK user
 router.get(
   "/whoami",
-  hasAccessToSDK,
+  hasAccessToSDK(),
   canAccessRoute(QUYX_USER.SDK_USER),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
     const { app } = res.locals;
@@ -205,7 +203,7 @@ router.get(
 //# all owned cards of the logged in SDK user (with pagination)
 router.get(
   "/cards",
-  hasAccessToSDK,
+  hasAccessToSDK(),
   canAccessRoute(QUYX_USER.SDK_USER),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
     const { app } = res.locals;
@@ -273,7 +271,7 @@ router.get(
 //# changing sdkuser selected card
 router.put(
   "/change/:id",
-  hasAccessToSDK,
+  hasAccessToSDK(),
   canAccessRoute(QUYX_USER.SDK_USER),
   validate(changeCardSDKSchema),
   async function (req: Request<ChangeCardSDK["params"]>, res: Response<{}, QuyxLocals>) {
@@ -326,7 +324,7 @@ router.put(
 //# disconnect sdkUser from app
 router.delete(
   "/disconnect",
-  hasAccessToSDK,
+  hasAccessToSDK(),
   canAccessRoute(QUYX_USER.SDK_USER),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
     const { app } = res.locals;
