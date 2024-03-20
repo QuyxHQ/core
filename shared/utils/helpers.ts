@@ -5,8 +5,6 @@ import bcryptjs from "bcryptjs";
 import { Request, Response } from "express";
 import { get } from "lodash";
 import crypto from "crypto";
-import type { SolanaSignInInput, SolanaSignInOutput } from "@solana/wallet-standard-features";
-import { verifySignIn } from "@solana/wallet-standard-util";
 import config from "./config";
 
 export function setCookie(res: Response, key: string, value: any, maxAge: number) {
@@ -26,19 +24,6 @@ export function removeCookie(res: Response, key: string) {
     httpOnly: true,
     secure: config.IS_PROD,
   });
-}
-
-export function verifySIWS(input: SolanaSignInInput, output: SolanaSignInOutput): boolean {
-  const serialisedOutput: SolanaSignInOutput = {
-    account: {
-      ...output.account,
-      publicKey: new Uint8Array(output.account.publicKey),
-    },
-    signature: new Uint8Array(output.signature),
-    signedMessage: new Uint8Array(output.signedMessage),
-  };
-
-  return verifySignIn(input, serialisedOutput);
 }
 
 export function getCacheKey(req: Request, address: string) {

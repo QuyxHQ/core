@@ -151,16 +151,6 @@ type CachedData = {
   expirationTime: string;
 };
 
-type SignMessage = {
-  domain?: string;
-  address: string;
-  chainId: string;
-  nonce: string;
-  statement?: string;
-  issuedAt: string;
-  expirationTime: string;
-};
-
 type GoogleUser = {
   email: string;
   email_verified: boolean;
