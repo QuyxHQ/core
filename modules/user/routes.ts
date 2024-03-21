@@ -27,6 +27,7 @@ import {
   generateOTP,
   generateUsernameSuggestion,
   getCacheKey,
+  isValidUsername,
 } from "../../shared/utils/helpers";
 import { sendKYCMail } from "../../shared/utils/mailer";
 import { countSDKUsers, deleteSDKUser, getAppsUserIsConnectedTo } from "../sdk/service";
@@ -182,6 +183,14 @@ router.put(
       const user = await findUser({ _id });
 
       const { username, pfp, email } = req.body;
+
+      const isUsernameValid = isValidUsername(username);
+      if (!isUsernameValid) {
+        return res.status(400).json({
+          status: true,
+          message: "Username syntax is not correct",
+        });
+      }
 
       //# username exist
       if (user!.username != username) {

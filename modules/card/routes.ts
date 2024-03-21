@@ -14,7 +14,7 @@ import {
 } from "./schema";
 import { countCards, createCard, findCard, findCards, updateCard } from "./service";
 import { v4 as uuidv4 } from "uuid";
-import { generateUsernameSuggestion } from "../../shared/utils/helpers";
+import { generateUsernameSuggestion, isValidUsername } from "../../shared/utils/helpers";
 import { findUser, getBoughtCards, getSoldCards } from "../user/service";
 import { sendWebhook } from "../../shared/utils/webhook-sender";
 import { omit } from "lodash";
@@ -30,6 +30,14 @@ router.get(
   ) {
     try {
       const { username } = req.query;
+
+      const isUsernameValid = isValidUsername(username);
+      if (!isUsernameValid) {
+        return res.status(400).json({
+          status: true,
+          message: "Username syntax is not correct",
+        });
+      }
 
       const usernameOccurance = await countCards({ username, isDeleted: false });
       if (usernameOccurance == 0) {
@@ -68,6 +76,14 @@ router.post(
         return res.status(400).json({
           status: false,
           message: "Kindly complete KYC before creating cards",
+        });
+      }
+
+      const isUsernameValid = isValidUsername(req.body.username);
+      if (!isUsernameValid) {
+        return res.status(400).json({
+          status: true,
+          message: "Username syntax is not correct",
         });
       }
 
@@ -126,6 +142,28 @@ router.put(
           status: false,
           message: "Cannot make changes to a card that is listed on marketplace",
         });
+      }
+
+      const isUsernameValid = isValidUsername(req.body.username);
+      if (!isUsernameValid) {
+        return res.status(400).json({
+          status: true,
+          message: "Username syntax is not correct",
+        });
+      }
+
+      if (card.username != req.body.username) {
+        const usernameOccurance = await countCards({
+          username: req.body.username,
+          isDeleted: false,
+        });
+
+        if (usernameOccurance > 0) {
+          return res.status(409).json({
+            status: false,
+            message: "Username is already taken, try a new one",
+          });
+        }
       }
 
       await updateCard({ identifier: cardId }, req.body);

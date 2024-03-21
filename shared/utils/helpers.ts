@@ -6,6 +6,10 @@ import { Request } from "express";
 import { get } from "lodash";
 import crypto from "crypto";
 
+export function isValidUsername(username: string) {
+  return /^(?!.*?_$)[a-zA-Z][a-zA-Z0-9_]*(?<![_])$/.test(username);
+}
+
 export function getCacheKey(req: Request, address: string) {
   const origin = get(req, "headers.origin") ?? get(req, "headers.referer") ?? "x-fallback";
 
