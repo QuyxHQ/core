@@ -240,11 +240,9 @@ router.get(
         });
       }
 
-      const totalCards = await countCards({ owner: quyxUser.id, isDeleted: false });
-      const cards = await findCards(
-        { owner: quyxUser._id, isDeleted: false },
-        { limit: parseInt(limit), page: parseInt(page) }
-      );
+      const filter = { owner: quyxUser.id, isDeleted: false };
+      const totalCards = await countCards(filter);
+      const cards = await findCards(filter, { limit: parseInt(limit), page: parseInt(page) });
 
       await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
 
@@ -274,19 +272,32 @@ router.put(
   hasAccessToSDK(),
   canAccessRoute(QUYX_USER.SDK_USER),
   validate(changeCardSDKSchema),
-  async function (req: Request<ChangeCardSDK["params"]>, res: Response<{}, QuyxLocals>) {
+  async function (
+    req: Request<ChangeCardSDK["params"], {}, ChangeCardSDK["body"]>,
+    res: Response<{}, QuyxLocals>
+  ) {
     const { app } = res.locals;
     const { identifier } = res.locals.meta;
     const start = dateUTC().getTime();
     const { id } = req.params;
 
     try {
+      let shouldFilterSpam = false;
+      if (typeof req.body?.filterSpam == "boolean") shouldFilterSpam == req.body.filterSpam;
+
       const card = await findCard({ _id: id });
       if (!card) {
         const message = `card with id/identifier of:${id} was not found`;
         await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
         return res.status(404).json({ status: false, message });
+      }
+
+      if (shouldFilterSpam && card.isFlagged) {
+        const message = `Oops! app does not allow linking of spam cards`;
+        await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
+
+        return res.status(409).json({ status: false, message });
       }
 
       const sdkUser = await findSDKUser({ _id: identifier, isActive: true });
@@ -357,7 +368,14 @@ router.get(
     const start = dateUTC().getTime();
 
     try {
-      const { limit, page } = req.query as { limit?: string; page?: string };
+      const { limit, page, filterSpam } = req.query as {
+        limit?: string;
+        page?: string;
+        filterSpam?: string;
+      };
+
+      let shouldFilterSpam = false;
+      if (typeof filterSpam == "string" && filterSpam == "true") shouldFilterSpam = true;
 
       if (limit && page) {
         if (isNaN(parseInt(limit)) || isNaN(parseInt(page))) {
@@ -368,14 +386,17 @@ router.get(
         }
       }
 
-      const totalResults = await countSDKUsers({ app: app!._id, isActive: true });
-      const result = await findSDKUsers(
-        { app: app!._id, isActive: true },
-        {
-          limit: limit ? parseInt(limit) : totalResults,
-          page: page ? parseInt(page) : 1,
-        }
-      );
+      const filter = {
+        app: app!._id,
+        isActive: true,
+        ...(shouldFilterSpam ? { isFlagged: false } : {}),
+      };
+
+      const totalResults = await countSDKUsers(filter);
+      const result = await findSDKUsers(filter, {
+        limit: limit ? parseInt(limit) : totalResults,
+        page: page ? parseInt(page) : 1,
+      });
 
       await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
       return res.json({
@@ -402,26 +423,33 @@ router.get(
   }
 );
 
-//# get info from address
+//# get info from address or username
 router.get(
-  "/user/single/:address",
+  "/user/single/:param",
   hasAccessToSDK(true),
   async function (req: Request, res: Response<{}, QuyxLocals>) {
     const { app } = res.locals;
-    const { address } = req.params;
+    const { param } = req.params;
     const start = dateUTC().getTime();
 
     try {
-      if (!address || typeof address !== "string" || !isValidAddress(address)) {
-        const message = `expected type address, got: ${String(address)}`;
+      if (!param || typeof param !== "string") {
+        const message = `expected type string, got: ${String(param)}`;
         await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
         return res.status(400).json({ status: false, message });
       }
 
-      const sdkUser = await findSDKUser({ address, app: app!._id, isActive: true });
+      const sdkUser = await findSDKUser({
+        app: app!._id,
+        isActive: true,
+        ...(isValidAddress(param)
+          ? { address: param }
+          : { "card.username": { $regex: param, $options: "i" } }),
+      });
+
       if (!sdkUser) {
-        const message = `no data found for address: ${address}`;
+        const message = `no data found for: ${param}`;
         await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
 
         return res.status(404).json({ status: false, message });

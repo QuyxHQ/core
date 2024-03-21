@@ -4,6 +4,11 @@ export const changeCardSDKSchema = z.object({
   params: z.object({
     id: z.string().regex(/^[0-9a-fA-F]{24}$/),
   }),
+  body: z
+    .object({
+      filterSpam: z.boolean().nullable(),
+    })
+    .optional(),
 });
 
 export const getSDKUsersSchema = z.object({
