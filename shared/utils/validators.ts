@@ -75,7 +75,7 @@ export function canAccessRoute(role: Props | Props[]) {
 
 export function hasAccessToSDK(onlyApiKeyIsAllowed: boolean = false) {
   return async function (req: Request, res: Response<{}, QuyxLocals>, next: NextFunction) {
-    let app: ({ _id: string } & QuyxApp) | null = null;
+    let app: any = null;
 
     const apiKey = get(req, "headers.quyx-api-key") ?? null;
     if (apiKey) {
@@ -143,7 +143,7 @@ export function hasAccessToSDK(onlyApiKeyIsAllowed: boolean = false) {
       }
     }
 
-    if (app) res.locals.app = app;
+    if (app) res.locals.app = app.toJSON();
     return next();
   };
 }
