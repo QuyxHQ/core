@@ -21,6 +21,7 @@ import { countCards, findCard, findCards } from "../card/service";
 import { findUser } from "../user/service";
 import { ChangeCardSDK, changeCardSDKSchema } from "./schema";
 import { dateUTC, getCacheKey, isValidAddress } from "../../shared/utils/helpers";
+import { omit } from "lodash";
 
 const router = express.Router();
 
@@ -54,6 +55,31 @@ async function writeLog(
     date: dateUTC(),
   });
 }
+
+//# getting info of app making the call
+router.get(
+  "/info",
+  hasAccessToSDK(),
+  async function (req: Request, res: Response<{}, QuyxLocals>) {
+    const { app } = res.locals;
+    const start = dateUTC().getTime();
+
+    try {
+      await writeLog({ start, status: QUYX_LOG_STATUS.SUCCESSFUL }, app, req);
+
+      return res.status(200).json({
+        status: true,
+        message: "Fetched app",
+        data: omit(app, ["apiKey", "owner", "webhook"]),
+      });
+    } catch (e: any) {
+      const message = e.message || "unable to complete request";
+      await writeLog({ start, status: QUYX_LOG_STATUS.FAILED, message }, app, req);
+
+      return res.status(500).json({ status: false, message });
+    }
+  }
+);
 
 //# logging in a SDK user
 router.post(

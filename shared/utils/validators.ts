@@ -144,7 +144,6 @@ export function hasAccessToSDK(onlyApiKeyIsAllowed: boolean = false) {
     }
 
     if (app) res.locals.app = app;
-    res.setHeader("quyx-app", JSON.stringify(app));
     return next();
   };
 }
