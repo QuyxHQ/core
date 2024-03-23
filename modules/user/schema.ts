@@ -12,7 +12,7 @@ export const SIWSSchema = z.object({
       domain: z.string(),
       address: z.string(),
       statement: z.string(),
-      chainId: z.enum(["devnet", "mainnet", "testnet"]),
+      chainId: z.enum(["devnet", "mainnet", "mainnet-beta", "testnet"]),
       nonce: z.string(),
       expirationTime: z.string(),
       issuedAt: z.string(),
